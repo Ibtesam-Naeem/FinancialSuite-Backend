@@ -38,7 +38,7 @@ def store_earnings_data(data):
                 reported_eps TEXT,
                 revenue_forecast TEXT,
                 reported_revenue TEXT,
-                time TEXT,
+                time TEXT NOT NULL DEFAULT 'Unknown',
                 market_cap TEXT,
                 UNIQUE (ticker, report_date, time)
             )
@@ -53,8 +53,7 @@ def store_earnings_data(data):
             reported_eps = EXCLUDED.reported_eps,
             revenue_forecast = EXCLUDED.revenue_forecast,
             reported_revenue = EXCLUDED.reported_revenue,
-            market_cap = EXCLUDED.market_cap,
-            time = COALESCE(EXCLUDED.time, earnings_reports.time);
+            market_cap = EXCLUDED.market_cap;
         """
 
         data_values = [
@@ -65,13 +64,13 @@ def store_earnings_data(data):
                 record["Reported EPS"],
                 record["Revenue Forecast"],
                 record["Reported Revenue"],
-                None if record["Time"] == "Unknown" else record["Time"],
+                "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
                 record["Market Cap"]
             )
             for record in data
         ]
 
-        execute_values(cur, insert_query, data_values) 
+        execute_values(cur, insert_query, data_values)
         conn.commit()
         logging.info(f"Successfully stored {len(data)} earnings reports in the database.")
 
@@ -81,6 +80,7 @@ def store_earnings_data(data):
     finally:
         cur.close()
         conn.close()
+
 
 def get_latest_earnings(limit=10):
     """

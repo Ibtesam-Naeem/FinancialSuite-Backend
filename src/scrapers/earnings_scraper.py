@@ -97,7 +97,13 @@ def scrape_earnings_data(driver):
                 EC.presence_of_element_located((By.CSS_SELECTOR, "[data-field-key='name']"))
             )
             ticker_full = ticker_element.text.strip()
-            ticker = ticker_full.split("\n")[0]
+            ticker_d = ticker_full.split("\n")[0]
+
+            # If it ends with 'D', remove it
+            if ticker_d.endswith("D"):
+                ticker = ticker_d[:-1]
+            else:
+                ticker = ticker_d
 
             # Extract market cap
             mkt_cap_element = row.find_element(By.CSS_SELECTOR, "[data-field-key='market_cap_basic']")
