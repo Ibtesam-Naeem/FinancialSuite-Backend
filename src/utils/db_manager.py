@@ -89,11 +89,34 @@ def get_latest_earnings(limit=10):
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # Get both before and after hours earnings
     cur.execute(f"""
-        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
-        FROM earnings_reports
-        ORDER BY report_date DESC
-        LIMIT {limit};
+        WITH ranked_earnings AS (
+            SELECT 
+                ticker, report_date, eps_estimate, reported_eps, revenue_forecast, 
+                reported_revenue, time, market_cap,
+                ROW_NUMBER() OVER (PARTITION BY time ORDER BY 
+                    CASE 
+                        WHEN market_cap LIKE '%B%' THEN REPLACE(REPLACE(market_cap, '$', ''), 'B', '')::float * 1000000000
+                        WHEN market_cap LIKE '%M%' THEN REPLACE(REPLACE(market_cap, '$', ''), 'M', '')::float * 1000000
+                        ELSE 0
+                    END DESC
+                ) as rank
+            FROM earnings_reports
+            WHERE time IN ('Before Open', 'After Close')
+        )
+        SELECT 
+            ticker, report_date, eps_estimate, reported_eps, revenue_forecast, 
+            reported_revenue, time, market_cap
+        FROM ranked_earnings
+        WHERE rank <= {limit}
+        ORDER BY 
+            CASE time
+                WHEN 'Before Open' THEN 1
+                WHEN 'After Close' THEN 2
+                ELSE 3
+            END,
+            rank;
     """)
 
     rows = cur.fetchall()

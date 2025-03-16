@@ -3,10 +3,9 @@ import argparse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from scrapers.econ_scraper import scrape_and_store_economic_data
-from scrapers.fear_sentiment import fear_index
-from scrapers.earnings_scraper import scrape_all_earnings
-from scrapers.premarket_movers import get_premarket_movers
+import uvicorn
+import os
+import sys
 
 from utils.logger import setup_logging
 
@@ -82,6 +81,12 @@ def run_scrapers():
     all the market data
     """
     try:
+        # Import scraper modules only when needed
+        from scrapers.econ_scraper import scrape_and_store_economic_data
+        from scrapers.fear_sentiment import fear_index
+        from scrapers.earnings_scraper import scrape_all_earnings
+        from scrapers.premarket_movers import get_premarket_movers
+        
         # Scrape and store economic events
         scrape_and_store_economic_data()
         
@@ -92,7 +97,7 @@ def run_scrapers():
         scrape_all_earnings()
         
         # Get pre-market movers
-        get_premarket_movers()
+        # get_premarket_movers()
         
     except Exception as e:
         logging.error(f"Error running scrapers: {e}")
@@ -109,11 +114,16 @@ def main():
             run_scrapers()
             
         if args.mode in ["api", "both"]:
-            # Run FastAPI server
-            subprocess.run(
-                ["uvicorn", "main:app", "--reload", "--port", "8000"],
-                check=True
-            )
+            # Run FastAPI server directly using uvicorn
+            print("Starting FastAPI server on http://127.0.0.1:8000")
+            # Get the absolute path to the current file
+            current_file = Path(__file__).resolve()
+            # Get the directory containing the current file
+            current_dir = current_file.parent
+            # Change the working directory to the directory containing the current file
+            os.chdir(current_dir)
+            # Run uvicorn with the correct module path
+            uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
     except KeyboardInterrupt:
         print("\nShutting down...")
     except Exception as e:
