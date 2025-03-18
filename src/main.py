@@ -1,11 +1,9 @@
-import subprocess
 import argparse
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import uvicorn
 import os
-import sys
 
 from utils.logger import setup_logging
 
@@ -13,7 +11,10 @@ from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
     get_latest_fear_greed,
-    get_latest_premarket_movers
+    get_latest_premarket_movers,
+    get_latest_premarket_gainers,
+    get_latest_premarket_losers,
+    get_latest_market_holidays
 )
 
 # Initialize logging
@@ -64,15 +65,45 @@ async def get_fear_greed(limit: int = 1):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/premarket")
-async def get_premarket():
+@app.get("/premarket/gainers")
+async def get_premarket_gainers_endpoint(limit: int = 20):
     try:
-        premarket = get_latest_premarket_movers()
-        return {"status": "success", "data": premarket}
+        gainers = get_latest_premarket_gainers(limit)
+        return {"status": "success", "data": gainers}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/premarket/losers")
+async def get_premarket_losers_endpoint(limit: int = 20):
+    try:
+        losers = get_latest_premarket_losers(limit)
+        return {"status": "success", "data": losers}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/premarket")
+async def get_premarket(limit: int = 20):
+    try:
+        premarket = get_latest_premarket_movers(limit)
+        return {"status": "success", "data": premarket}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/market-holidays")
+async def get_market_holidays():
+    try:
+        holidays = get_latest_market_holidays()
+        return {
+            "status": "success",
+            "data": holidays
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
@@ -86,6 +117,7 @@ def run_scrapers():
         from scrapers.fear_sentiment import fear_index
         from scrapers.earnings_scraper import scrape_all_earnings
         from scrapers.premarket_movers import get_premarket_movers
+        from scrapers.general_info import get_market_holidays
         
         # Scrape and store economic events
         scrape_and_store_economic_data()
@@ -95,9 +127,12 @@ def run_scrapers():
         
         # Get earnings data
         scrape_all_earnings()
+
+        # Get Market Holidays
+        get_market_holidays()
         
         # Get pre-market movers
-        # get_premarket_movers()
+        get_premarket_movers()
         
     except Exception as e:
         logging.error(f"Error running scrapers: {e}")

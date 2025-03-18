@@ -54,7 +54,7 @@ def scrape_earnings_data(driver):
     Returns:
         list: List of dictionaries containing earnings data
     """
-    # Applies This Week filter
+    # Applies the "This Week" filter
     try:
         WebDriverWait(driver, 10).until(
             EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'itemContent-LeZwGiB6') and contains(text(), 'This Week')]"))
@@ -66,7 +66,7 @@ def scrape_earnings_data(driver):
     except Exception as e:
         logging.error(f"Failed to click on 'This Week' button: {e}")
 
-    # Wait for data table to refresh
+    # Waits for data table to refresh
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "tv-data-table"))
     )
@@ -85,7 +85,7 @@ def scrape_earnings_data(driver):
             logging.info("No more data to load.")
             break
 
-    # Extract data from table
+    # Extracts earnings data from table
     earnings_data = []
     rows = driver.find_elements(By.CLASS_NAME, "tv-data-table__row")
     logging.info(f"Scraping earnings for {len(rows)} stocks.")
@@ -99,7 +99,7 @@ def scrape_earnings_data(driver):
             ticker_full = ticker_element.text.strip()
             ticker_d = ticker_full.split("\n")[0]
 
-            # If it ends with 'D', remove it
+            # If it ends with 'D', remove it as tradingview has a "D" in some tickers
             if ticker_d.endswith("D"):
                 ticker = ticker_d[:-1]
             else:
@@ -127,6 +127,7 @@ def scrape_earnings_data(driver):
             time_element = row.find_element(By.CSS_SELECTOR, "[data-field-key='earnings_release_next_time']")
             time_reporting = time_element.get_attribute("title").strip() or "Unknown"
             
+            # Extract the date reporting information
             date_reporting_element = row.find_element(By.CSS_SELECTOR, "[data-field-key='earnings_release_next_date']")
             date_reporting = date_reporting_element.text.strip() if date_reporting_element else "N/A"
 

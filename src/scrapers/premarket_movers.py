@@ -47,9 +47,9 @@ def get_premarket_movers():
                 try:
                     ticker_data = {
                         "symbol": ticker["ticker"],
-                        "price": ticker["day"]["c"],
-                        "change": ticker["todaysChange"],
-                        "change_percent": ticker["todaysChangePerc"],
+                        "price": round(ticker["day"]["c"], 2), # Rounded to 2 Decimal Places
+                        "change": round(ticker["todaysChange"], 2), # Rounded to 2 Decimal Places
+                        "change_percent": round(ticker["todaysChangePerc"], 2), # Rounded to 2 Decimal Places
                         "volume": ticker["day"]["v"],
                         "timestamp": today
                     }
@@ -58,8 +58,9 @@ def get_premarket_movers():
                 except KeyError as e:
                     logging.warning(f"Missing data for ticker {ticker.get('ticker', 'unknown')}: {e}")
                     continue
-            return processed
 
+            return processed
+        
         # Process gainers and losers
         gainers = process_tickers(gainers_data)[:20]  
         losers = process_tickers(losers_data)[:20]   

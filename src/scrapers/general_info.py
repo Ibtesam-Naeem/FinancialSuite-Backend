@@ -1,11 +1,12 @@
-import os
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
 from utils.logger import setup_logging
-from utils.db_manager import store_market_holidays
+from utils.db_manager import store_market_holidays, get_latest_market_holidays
+import os
 
 load_dotenv()
+
 logging = setup_logging("GeneralInfoLogger")
 
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
@@ -13,7 +14,7 @@ POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 def get_market_holidays():
     """
     Fetches stock market holidays from Polygon.io API.
-    Returns list of dictionaries containing holiday data.
+    Returns list of dictionaries containing the holiday data.
     """
     try:
         # Gets the current year
@@ -46,12 +47,6 @@ def get_market_holidays():
 
             except KeyError as e:
                 logging.warning(f"Missing data for holiday: {e}")
-                continue
-
-        # Stores the data in the database
-        if processed_holidays:
-            store_market_holidays(processed_holidays)
-            logging.info(f"Successfully processed {len(processed_holidays)} market holidays")
         
         return processed_holidays
 
@@ -62,3 +57,14 @@ def get_market_holidays():
     except Exception as e:
         logging.error(f"Unexpected error processing market holidays: {e}")
         return []
+
+def fetch_and_store_market_holidays():
+    """
+    Main function to fetch and store market holidays data.
+    """
+    holidays_data = get_market_holidays()
+    if holidays_data:
+        logging.info(f"Found {len(holidays_data)} market holidays.")
+        store_market_holidays(holidays_data)
+    else:
+        logging.warning("No market holidays data found.")
