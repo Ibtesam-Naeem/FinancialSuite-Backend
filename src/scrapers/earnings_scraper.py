@@ -90,6 +90,8 @@ def scrape_earnings_data(driver):
     rows = driver.find_elements(By.CLASS_NAME, "tv-data-table__row")
     logging.info(f"Scraping earnings for {len(rows)} stocks.")
 
+    time.sleep(5)
+    
     for index, row in enumerate(rows):
         try:
             # Extract ticker symbol
