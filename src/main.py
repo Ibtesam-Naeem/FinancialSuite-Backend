@@ -35,17 +35,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """
-    Initialize database tables when the application starts.
-    """
-    try:
-        create_top_stocks_table()
-        logging.info("Database tables initialized successfully")
-    except Exception as e:
-        logging.error(f"Error initializing database tables: {e}")
-
 # ---------------------------- API ENDPOINTS ----------------------------
 
 @app.get("/")
@@ -119,14 +108,25 @@ async def get_market_holidays():
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/top-stocks")
-async def get_top_stocks(category):
+async def get_top_stocks(category: str = None, limit: int = 5):
     """
     Get the latest top stocks for after-hours or premarket.
- 
+    Args:
+        category (str, optional): Filter by category ('after_hours' or 'premarket')
+        limit (int): Number of records to return
+    Returns:
+        dict: Dictionary containing the top stocks data
     """
     try:
+        if category and category not in ['after_hours', 'premarket']:
+            raise HTTPException(
+                status_code=400,
+                detail="Category must be either 'after_hours' or 'premarket'"
+            )
+            
         stocks = get_latest_top_stocks(category, limit)
         return {"status": "success", "data": stocks}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -138,12 +138,16 @@ def run_scrapers():
     all the market data
     """
     try:
-        # Import scraper modules only when needed
         from scrapers.econ_scraper import scrape_and_store_economic_data
         from scrapers.fear_sentiment import fear_index
         from scrapers.earnings_scraper import scrape_all_earnings
         from scrapers.premarket_movers import get_premarket_movers
         from scrapers.general_info import get_market_holidays
+        
+        # Create top_stocks table if it doesn't exist
+        logging.info("Creating top_stocks table...")
+        create_top_stocks_table()
+        logging.info("Top stocks table created successfully")
         
         # Scrape and store economic events
         scrape_and_store_economic_data()
@@ -182,7 +186,7 @@ def run_scrapers():
         
     except Exception as e:
         logging.error(f"Error running scrapers: {e}")
-        raise  # Re-raise the exception to see the full traceback
+        raise  
 
 # ---------------------------- MAIN ----------------------------
 
