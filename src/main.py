@@ -14,7 +14,10 @@ from utils.db_manager import (
     get_latest_premarket_movers,
     get_latest_premarket_gainers,
     get_latest_premarket_losers,
-    get_latest_market_holidays
+    get_latest_market_holidays,
+    create_top_stocks_table,
+    store_top_stocks,
+    get_latest_top_stocks
 )
 
 # Initialize logging
@@ -104,6 +107,18 @@ async def get_market_holidays():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.get("/top-stocks")
+async def get_top_stocks(category):
+    """
+    Get the latest top stocks for after-hours or premarket.
+ 
+    """
+    try:
+        stocks = get_latest_top_stocks(category, limit)
+        return {"status": "success", "data": stocks}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
@@ -112,34 +127,62 @@ def run_scrapers():
     all the market data
     """
     try:
-        # Import scraper modules only when needed
         from scrapers.econ_scraper import scrape_and_store_economic_data
         from scrapers.fear_sentiment import fear_index
         from scrapers.earnings_scraper import scrape_all_earnings
         from scrapers.premarket_movers import get_premarket_movers
         from scrapers.general_info import get_market_holidays
         
+        # Create top_stocks table if it doesn't exist
+        logging.info("Creating top_stocks table...")
+        create_top_stocks_table()
+        logging.info("Top stocks table created successfully")
+        
         # Scrape and store economic events
         scrape_and_store_economic_data()
         
-        # # Get fear index
+        # Get fear index
         fear_index()
         
         # Get earnings data
-        scrape_all_earnings()
+        logging.info("Fetching earnings data...")
+        earnings = scrape_all_earnings()
+        # Store top 5 earnings stocks
+        if earnings:
+            logging.info(f"Found {len(earnings)} earnings records")
+            top_earnings = [{'ticker': stock['Ticker'], 'rank': i+1} 
+                          for i, stock in enumerate(earnings[:5])]
+            logging.info(f"Storing top earnings: {top_earnings}")
+            store_top_stocks('after_hours', top_earnings)
+        else:
+            logging.warning("No earnings data found")
 
         # Get Market Holidays
         get_market_holidays()
         
         # Get pre-market movers
-        get_premarket_movers()
+        logging.info("Fetching premarket movers...")
+        premarket = get_premarket_movers()
+        # Store top 5 premarket stocks
+        if premarket and premarket.get('gainers'):
+            logging.info(f"Found {len(premarket['gainers'])} premarket records")
+            top_premarket = [{'ticker': stock['symbol'], 'rank': i+1} 
+                           for i, stock in enumerate(premarket['gainers'][:5])]
+            logging.info(f"Storing top premarket: {top_premarket}")
+            store_top_stocks('premarket', top_premarket)
+        else:
+            logging.warning("No premarket data found")
         
     except Exception as e:
         logging.error(f"Error running scrapers: {e}")
+        raise  
 
 # ---------------------------- MAIN ----------------------------
 
 def main():
+    """
+    Main function to run the scrapers and the API server.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["scraper", "api", "both"], default="both")
     args = parser.parse_args()
@@ -159,8 +202,10 @@ def main():
             os.chdir(current_dir)
             # Run uvicorn with the correct module path
             uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
     except KeyboardInterrupt:
         print("\nShutting down...")
+
     except Exception as e:
         print(f"Error: {e}")
 

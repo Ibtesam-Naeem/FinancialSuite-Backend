@@ -560,3 +560,126 @@ def get_latest_market_holidays():
         logging.error(f"Error fetching market holidays: {e}")
         return []
 
+# --------------------- TOP STOCKS DATABASE FUNCTIONS ---------------------
+
+def create_top_stocks_table():
+    """
+    Creates the top_stocks table if it doesn't exist.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS top_stocks (
+                id SERIAL PRIMARY KEY,
+                category VARCHAR(50),  -- 'after_hours' or 'premarket'
+                ticker VARCHAR(10),
+                rank INTEGER,  -- Rank of the stock (1-5)
+                date DATE,     -- Date of the data
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+        logging.info("Top stocks table created or already exists.")
+    except Exception as e:
+        logging.error(f"Error creating top_stocks table: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def execute_query(query, params=None):
+    """
+    Helper function to execute a database query.
+    Args:
+        query (str): SQL query to execute
+        params (tuple, optional): Query parameters
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        if params:
+            cur.execute(query, params)
+        else:
+            cur.execute(query)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
+
+def store_top_stocks(category, stocks_data):
+    """
+    Stores top stocks data in the database.
+    Args:
+        category (str): Category of stocks ('after_hours' or 'premarket')
+        stocks_data (list): List of dictionaries containing ticker and rank
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            DELETE FROM top_stocks 
+            WHERE category = %s AND date = CURRENT_DATE
+        """, (category,))
+        
+        for stock in stocks_data:
+            cur.execute("""
+                INSERT INTO top_stocks (category, ticker, rank, date)
+                VALUES (%s, %s, %s, CURRENT_DATE)
+            """, (category, stock['ticker'], stock['rank']))
+            
+        conn.commit()
+        logging.info(f"Successfully stored {len(stocks_data)} top stocks for {category}")
+        
+    except Exception as e:
+        logging.error(f"Error storing top stocks: {e}")
+        raise
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def get_latest_top_stocks(category=None, limit=5):
+    """
+    Retrieves the latest top stocks from the database.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        query = """
+            SELECT category, ticker, rank, date, created_at
+            FROM top_stocks
+            WHERE date = CURRENT_DATE
+        """
+        params = []
+        
+        if category:
+            query += " AND category = %s"
+            params.append(category)
+            
+        query += " ORDER BY rank LIMIT %s"
+        params.append(limit)
+
+        cur.execute(query, params)
+        results = cur.fetchall()
+
+        return [{
+            'category': row[0],
+            'ticker': row[1],
+            'rank': row[2],
+            'date': row[3],
+            'created_at': row[4]
+        } for row in results]
+    
+    except Exception as e:
+        logging.error(f"Error fetching top stocks: {e}")
+        return []
+    
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
