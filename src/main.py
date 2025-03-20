@@ -35,6 +35,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize database tables when the application starts.
+    """
+    try:
+        create_top_stocks_table()
+        logging.info("Database tables initialized successfully")
+    except Exception as e:
+        logging.error(f"Error initializing database tables: {e}")
+
 # ---------------------------- API ENDPOINTS ----------------------------
 
 @app.get("/")
@@ -127,16 +138,12 @@ def run_scrapers():
     all the market data
     """
     try:
+        # Import scraper modules only when needed
         from scrapers.econ_scraper import scrape_and_store_economic_data
         from scrapers.fear_sentiment import fear_index
         from scrapers.earnings_scraper import scrape_all_earnings
         from scrapers.premarket_movers import get_premarket_movers
         from scrapers.general_info import get_market_holidays
-        
-        # Create top_stocks table if it doesn't exist
-        logging.info("Creating top_stocks table...")
-        create_top_stocks_table()
-        logging.info("Top stocks table created successfully")
         
         # Scrape and store economic events
         scrape_and_store_economic_data()
@@ -175,7 +182,7 @@ def run_scrapers():
         
     except Exception as e:
         logging.error(f"Error running scrapers: {e}")
-        raise  
+        raise  # Re-raise the exception to see the full traceback
 
 # ---------------------------- MAIN ----------------------------
 
