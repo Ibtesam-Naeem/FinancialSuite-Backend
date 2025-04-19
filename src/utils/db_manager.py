@@ -2,9 +2,9 @@ import os
 import psycopg2
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
-from utils.logger import setup_logging
+from utils.logger import setup_logger
 
-logging = setup_logging("DB Logger")
+logger = setup_logger("DB Logger")
 
 load_dotenv()
 DB_URL = os.getenv("DB_URL")
@@ -22,7 +22,7 @@ def store_earnings_data(data):
     Prevents duplicates and updates existing records.
     """
     if not data:
-        logging.info("No earnings data to store.")
+        logger.info("No earnings data to store.")
         return
 
     try:
@@ -72,10 +72,10 @@ def store_earnings_data(data):
 
         execute_values(cur, insert_query, data_values)
         conn.commit()
-        logging.info(f"Successfully stored {len(data)} earnings reports in the database.")
+        logger.info(f"Successfully stored {len(data)} earnings reports in the database.")
 
     except Exception as e:
-        logging.error(f"Database error (Earnings Reports): {e}")
+        logger.error(f"Database error (Earnings Reports): {e}")
     
     finally:
         cur.close()
@@ -123,7 +123,7 @@ def store_economic_data(economic_data):
     Prevents duplicates and updates existing records.
     """
     if not economic_data:
-        logging.info("No economic data to store.")
+        logger.info("No economic data to store.")
         return
 
     try:
@@ -171,10 +171,10 @@ def store_economic_data(economic_data):
 
         execute_values(cur, insert_query, data_values) 
         conn.commit()
-        logging.info(f"Successfully stored {len(economic_data)} economic events in the database.")
+        logger.info(f"Successfully stored {len(economic_data)} economic events in the database.")
 
     except Exception as e:
-        logging.error(f"Database error (Economic Events): {e}")
+        logger.error(f"Database error (Economic Events): {e}")
     
     finally:
         cur.close()
@@ -272,191 +272,6 @@ def get_latest_fear_greed(limit=10):
     conn.close()
     return fear_greed_data
 
-def store_premarket_data(data):
-    """
-    Stores pre-market movers data in the PostgreSQL database using separate tables.
-    """
-    if not data:
-        logging.info("No pre-market data to store.")
-        return
-
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        # Create gainers table if it doesn't exist
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS premarket_gainers (
-                id SERIAL PRIMARY KEY,
-                symbol TEXT NOT NULL,
-                price NUMERIC,
-                change NUMERIC,
-                change_percent NUMERIC,
-                volume BIGINT,
-                timestamp DATE NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE (symbol, timestamp)
-            )
-        """)
-        
-        # Create losers table if it doesn't exist
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS premarket_losers (
-                id SERIAL PRIMARY KEY,
-                symbol TEXT NOT NULL,
-                price NUMERIC,
-                change NUMERIC,
-                change_percent NUMERIC,
-                volume BIGINT,
-                timestamp DATE NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE (symbol, timestamp)
-            )
-        """)
-        conn.commit()
-
-        # Store gainers
-        if data.get("gainers"):
-            gainers_query = """
-                INSERT INTO premarket_gainers 
-                (symbol, price, change, change_percent, volume, timestamp)
-                VALUES %s
-                ON CONFLICT (symbol, timestamp) DO UPDATE SET
-                    price = EXCLUDED.price,
-                    change = EXCLUDED.change,
-                    change_percent = EXCLUDED.change_percent,
-                    volume = EXCLUDED.volume;
-            """
-            
-            gainers_data = [(
-                gainer["symbol"],
-                gainer["price"],
-                gainer["change"],
-                gainer["change_percent"],
-                gainer["volume"],
-                gainer["timestamp"]
-            ) for gainer in data.get("gainers", [])]
-            
-            if gainers_data:
-                execute_values(cur, gainers_query, gainers_data)
-                conn.commit()
-                logging.info(f"Successfully stored {len(gainers_data)} pre-market gainers.")
-
-        # Store losers
-        if data.get("losers"):
-            losers_query = """
-                INSERT INTO premarket_losers 
-                (symbol, price, change, change_percent, volume, timestamp)
-                VALUES %s
-                ON CONFLICT (symbol, timestamp) DO UPDATE SET
-                    price = EXCLUDED.price,
-                    change = EXCLUDED.change,
-                    change_percent = EXCLUDED.change_percent,
-                    volume = EXCLUDED.volume;
-            """
-            
-            losers_data = [(
-                loser["symbol"],
-                loser["price"],
-                loser["change"],
-                loser["change_percent"],
-                loser["volume"],
-                loser["timestamp"]
-            ) for loser in data.get("losers", [])]
-            
-            if losers_data:
-                execute_values(cur, losers_query, losers_data)
-                conn.commit()
-                logging.info(f"Successfully stored {len(losers_data)} pre-market losers.")
-
-    except Exception as e:
-        logging.error(f"Database error (Pre-market Movers): {e}")
-    
-    finally:
-        cur.close()
-        conn.close()
-
-def get_latest_premarket_gainers(limit=20):
-    """
-    Fetches the latest pre-market gainers from the database.
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute(f"""
-        WITH latest_date AS (
-            SELECT MAX(timestamp) as max_date 
-            FROM premarket_gainers
-        )
-        SELECT symbol, price, change, change_percent, volume, timestamp
-        FROM premarket_gainers, latest_date
-        WHERE timestamp = latest_date.max_date
-        ORDER BY change_percent DESC
-        LIMIT {limit};
-    """)
-
-    rows = cur.fetchall()
-    gainers = [
-        {
-            "symbol": row[0],
-            "price": float(row[1]),
-            "change": float(row[2]),
-            "change_percent": float(row[3]),
-            "volume": row[4],
-            "timestamp": row[5]
-        }
-        for row in rows
-    ]
-
-    cur.close()
-    conn.close()
-    return gainers
-
-def get_latest_premarket_losers(limit=20):
-    """
-    Fetches the latest pre-market losers from the database.
-    """
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute(f"""
-        WITH latest_date AS (
-            SELECT MAX(timestamp) as max_date 
-            FROM premarket_losers
-        )
-        SELECT symbol, price, change, change_percent, volume, timestamp
-        FROM premarket_losers, latest_date
-        WHERE timestamp = latest_date.max_date
-        ORDER BY change_percent ASC
-        LIMIT {limit};
-    """)
-
-    rows = cur.fetchall()
-    losers = [
-        {
-            "symbol": row[0],
-            "price": float(row[1]),
-            "change": float(row[2]),
-            "change_percent": float(row[3]),
-            "volume": row[4],
-            "timestamp": row[5]
-        }
-        for row in rows
-    ]
-
-    cur.close()
-    conn.close()
-    return losers
-
-def get_latest_premarket_movers(limit=20):
-    """
-    Fetches both gainers and losers together.
-    """
-    return {
-        "gainers": get_latest_premarket_gainers(limit),
-        "losers": get_latest_premarket_losers(limit)
-    }
-
 # --------------------- MARKET HOLIDAYS DATABASE FUNCTIONS ---------------------
 
 def store_market_holidays(holidays_data):
@@ -467,7 +282,7 @@ def store_market_holidays(holidays_data):
     :return: True if successful, False otherwise
     """
     if not holidays_data:
-        logging.info("No market holidays data to store.")
+        logger.info("No market holidays data to store.")
         return False
 
     try:
@@ -512,16 +327,16 @@ def store_market_holidays(holidays_data):
                 ))
                 conn.commit()
             except Exception as e:
-                logging.error(f"Error storing holiday {holiday['name']}: {e}")
+                logger.error(f"Error storing holiday {holiday['name']}: {e}")
                 conn.rollback()
 
-        logging.info(f"Successfully stored {len(holidays_data)} market holidays in the database.")
+        logger.info(f"Successfully stored {len(holidays_data)} market holidays in the database.")
         cur.close()
         conn.close()
         return True
 
     except Exception as e:
-        logging.error(f"Database error (Market Holidays): {e}")
+        logger.error(f"Database error (Market Holidays): {e}")
         return False
 
 def get_latest_market_holidays():
@@ -557,7 +372,7 @@ def get_latest_market_holidays():
         return holidays_data
     
     except Exception as e:
-        logging.error(f"Error fetching market holidays: {e}")
+        logger.error(f"Error fetching market holidays: {e}")
         return []
 
 # --------------------- TOP STOCKS DATABASE FUNCTIONS ---------------------
@@ -581,9 +396,9 @@ def create_top_stocks_table():
             )
         """)
         conn.commit()
-        logging.info("Top stocks table created or already exists.")
+        logger.info("Top stocks table created or already exists.")
     except Exception as e:
-        logging.error(f"Error creating top_stocks table: {e}")
+        logger.error(f"Error creating top_stocks table: {e}")
     finally:
         if 'conn' in locals():
             conn.close()
@@ -633,10 +448,10 @@ def store_top_stocks(category, stocks_data):
             """, (category, stock['ticker'], stock['rank']))
             
         conn.commit()
-        logging.info(f"Successfully stored {len(stocks_data)} top stocks for {category}")
+        logger.info(f"Successfully stored {len(stocks_data)} top stocks for {category}")
         
     except Exception as e:
-        logging.error(f"Error storing top stocks: {e}")
+        logger.error(f"Error storing top stocks: {e}")
         raise
     finally:
         if 'conn' in locals():
@@ -676,7 +491,7 @@ def get_latest_top_stocks(category=None, limit=5):
         } for row in results]
     
     except Exception as e:
-        logging.error(f"Error fetching top stocks: {e}")
+        logger.error(f"Error fetching top stocks: {e}")
         return []
     
     finally:

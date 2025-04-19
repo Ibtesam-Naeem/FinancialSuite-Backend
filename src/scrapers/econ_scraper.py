@@ -1,13 +1,10 @@
 from datetime import datetime
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from utils.chrome_options import chrome_options
-from utils.logger import setup_logging
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from utils.logger import setup_logger
 from utils.db_manager import store_economic_data
 import time
 
-logging = setup_logging("EconScraper")
+logger = setup_logger("EconScraper")
 
 # ---------------------------- HELPER FUNCTIONS ----------------------------
 
@@ -30,147 +27,124 @@ def format_date(date_string):
         return date_string 
 
 # ---------------------------- BROWSER FUNCTIONS ----------------------------
-    
+
 def open_economic_calendar():
     """
-    Initializes Chrome WebDriver and navigates to TradingView's USDCAD Economic Calendar.
+    Initializes Playwright and navigates to TradingView's USDCAD Economic Calendar.
     
     Returns:
-        WebDriver: Initialized driver if successful
-        None: If initialization fails
+        tuple: (playwright, browser, page) if successful
+        tuple: (None, None, None) if initialization fails
     """
     try:
-        driver = chrome_options()
-        driver.set_window_size(1920, 1080)
-        logging.info("Initializing WebDriver and opening economic calendar page.")
-        driver.get("https://www.tradingview.com/symbols/USDCAD/economic-calendar/?exchange=FX_IDC")
-        
-        # Wait for calendar items to load
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@data-name, 'economic-calendar-item')]"))
-        )
-        logging.info("Economic calendar page loaded successfully.")
-        return driver
-    
-    except Exception as e:
-        logging.error(f"Failed to open economic calendar: {e}")
-        return None
+        p = sync_playwright().start()
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(viewport={"width": 1920, "height": 1080})
+        page = context.new_page()
 
-def filter_option(driver):
+        logger.info("Initializing Playwright and opening economic calendar page.")
+        page.goto("https://www.tradingview.com/symbols/USDCAD/economic-calendar/?exchange=FX_IDC", timeout=60000)
+        page.wait_for_selector("div[data-name*='economic-calendar-item']", timeout=30000)
+        logger.info("Economic calendar page loaded successfully.")
+
+        return p, browser, page
+    except Exception as e:
+        logger.error(f"Failed to open economic calendar: {e}")
+        return None, None, None
+
+def filter_option(page):
     """
     Applies filters to the economic calendar:
     1. Clicks "High Importance" filter
     2. Selects "This Week" timeframe
-    
-    Note: Uses JavaScript click due to potential overlay issues
     """
-    # Applies 'High Importance' filter
     try:
-        logging.info("Finding the High Importance button.")
-        importance_button = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, 
-                '//*[@id="js-category-content"]/div[2]/div/section/div/div[2]/div/div/div/div[1]/div[1]/button/span[2]/span[1]'
-            ))
-        )
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", importance_button)
-        time.sleep(2)  # Allow page to settle after scroll
-        driver.execute_script("arguments[0].click();", importance_button)
-        logging.info("Importance button clicked successfully.")
-    
+        logger.info("Finding the High Importance button.")
+        importance_button = page.locator('button:has-text("Importance")')
+        importance_button.scroll_into_view_if_needed()
+        time.sleep(1)
+        importance_button.click()
+        logger.info("Importance button clicked successfully.")
     except Exception as e:
-        logging.error(f"Failed to click Importance button: {e}")
-    
-    # Applies 'This Week' filter
-    try:
-        logging.info(f"Selecting 'This Week' option")
-        time.sleep(2)  
+        logger.error(f"Failed to click Importance button: {e}")
 
-        this_week_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'This week')]"))
-        )
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", this_week_button)
-        driver.execute_script("arguments[0].click();", this_week_button)
-   
+    try:
+        logger.info("Selecting 'This Week' option")
+        this_week_button = page.locator('button:has-text("This week")')
+        this_week_button.scroll_into_view_if_needed()
+        time.sleep(1)
+        this_week_button.click()
     except Exception as e:
-        logging.error(f"Failed to select 'This Week': {e}")
-        return 
+        logger.error(f"Failed to select 'This Week': {e}")
 
 # ---------------------------- DATA EXTRACTION ----------------------------
 
-def scrape_economic_data(driver):
+def scrape_economic_data(page):
     """
     Extracts economic event data from the filtered calendar.
-    
+
     Collects for each event:
     - Date and time
     - Country
     - Event name
     - Actual, forecast, and prior values
-    
+
     Returns:
         list: List of dictionaries containing event data
     """
-    logging.info("Waiting for the economic calendar to load.")
-    
-    # Verifies data is available
+    logger.info("Waiting for the economic calendar to load.")
+
     try:
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@data-name, 'economic-calendar-item')]"))
-        )
-    except Exception:
-        logging.warning("No economic calendar data available. Skipping scrape.")
+        page.wait_for_selector("div[data-name*='economic-calendar-item']", timeout=10000)
+    except PlaywrightTimeout:
+        logger.warning("No economic calendar data available. Skipping scrape.")
         return []
 
-    # Get all event rows
-    rows = driver.find_elements(By.XPATH, "//div[contains(@data-name, 'economic-calendar-item')]")
+    rows = page.locator("div[data-name*='economic-calendar-item']")
+    count = rows.count()
 
-    if not rows:
-        logging.warning("No economic calendar rows found. Skipping.")
+    if count == 0:
+        logger.warning("No economic calendar rows found. Skipping.")
         return []
 
     econ_data = []
-    logging.info(f"Scraping Econ Events for {len(rows)} events.")
+    logger.info(f"Scraping Econ Events for {count} events.")
 
-    # Process each event row
-    for index, row in enumerate(rows):
+    for index in range(count):
         try:
-            # Extract date
-            date_element = row.find_elements(By.XPATH, ".//time")
-            event_date = format_date(date_element[0].get_attribute("datetime")) if date_element else "N/A"
+            row = rows.nth(index)
 
-            # Extract time (requires JavaScript due to shadow DOM)
-            event_time = driver.execute_script("""
-                let shadow_host = arguments[0].shadowRoot;
-                return shadow_host ? shadow_host.querySelector('time-format').textContent.trim() : 'N/A';
-            """, row)
+            # Date
+            date_element = row.locator("time")
+            event_date = format_date(date_element.get_attribute("datetime")) if date_element.count() > 0 else "N/A"
 
-            # Extract country
-            country_elements = row.find_elements(By.XPATH, ".//span[contains(@class, 'countryName')]")
-            country = country_elements[0].text.strip() if country_elements else "N/A"
+            # Time (visible directly)
+            event_time = row.locator("span[class*=eventTime]").text_content(timeout=2000).strip() if row.locator("span[class*=eventTime]").count() > 0 else "N/A"
 
-            # Extract event name
-            event_elements = row.find_elements(By.XPATH, ".//span[contains(@class, 'titleText')]")
-            event_name = event_elements[0].text.strip() if event_elements else "N/A"
+            # Country
+            country = row.locator("span[class*='countryName']").first.text_content().strip() if row.locator("span[class*='countryName']").count() > 0 else "N/A"
 
-            # Extract values
-            value_elements = row.find_elements(By.XPATH, ".//span[contains(@class, 'valueWithUnit')]")
-            actual_value = clean_text(value_elements[0].text) if len(value_elements) > 0 else "N/A"
-            forecast_value = clean_text(value_elements[1].text) if len(value_elements) > 1 else "N/A"
-            prior_value = clean_text(value_elements[2].text) if len(value_elements) > 2 else "N/A"
+            # Event name
+            event_name = row.locator("span[class*='titleText']").first.text_content().strip() if row.locator("span[class*='titleText']").count() > 0 else "N/A"
 
-            # Stores event data
+            # Actual, Forecast, Prior
+            values = row.locator("span[class*='valueWithUnit']")
+            actual = clean_text(values.nth(0).text_content() or "") if values.count() > 0 else "N/A"
+            forecast = clean_text(values.nth(1).text_content() or "") if values.count() > 1 else "N/A"
+            prior = clean_text(values.nth(2).text_content() or "") if values.count() > 2 else "N/A"
+
             econ_data.append({
                 "date": event_date,
                 "time": event_time,
                 "country": country,
                 "event": event_name,
-                "actual": actual_value,
-                "forecast": forecast_value,
-                "prior": prior_value
+                "actual": actual,
+                "forecast": forecast,
+                "prior": prior
             })
 
         except Exception as e:
-            logging.error(f"Error processing row {index}: {e}")
+            logger.error(f"Error processing row {index}: {e}")
 
     return econ_data
 
@@ -183,29 +157,30 @@ def scrape_and_store_economic_data():
     2. Applies filters
     3. Scrapes the data
     4. Stores it in the database
-    
+
     Returns:
         list: Scraped economic data if successful
         empty list: If any step fails
     """
-    driver = open_economic_calendar()
-    
-    if not driver:
-        logging.error("WebDriver initialization failed.")
+    p, browser, page = open_economic_calendar()
+    if not page:
+        logger.error("Browser initialization failed.")
         return []
 
     try:
-        filter_option(driver)
-        time.sleep(2)  
-        economic_data = scrape_economic_data(driver)
+        filter_option(page)
+        time.sleep(2)
+        economic_data = scrape_economic_data(page)
 
         if economic_data:
-            store_economic_data(economic_data) 
+            store_economic_data(economic_data)
+            logger.info(f"Stored {len(economic_data)} economic events in the database.")
             return economic_data
 
     except Exception as e:
-        logging.error(f"Error scraping economic data: {e}.")
+        logger.error(f"Error scraping economic data: {e}")
         return []
-    
+
     finally:
-        driver.quit()
+        browser.close()
+        p.stop()

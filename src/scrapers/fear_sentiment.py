@@ -1,14 +1,11 @@
 import time
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from utils.chrome_options import chrome_options
-from utils.logger import setup_logging
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from utils.logger import setup_logger
 from utils.db_manager import store_fear_greed_index, get_latest_fear_greed
 
-logging = setup_logging("SentimentLogger")
+logger = setup_logger("SentimentLogger")
 
-driver = chrome_options()
+# ---------------------------- HELPER FUNCTION ----------------------------
 
 def get_fear_category(fear_value):
     """
@@ -29,28 +26,29 @@ def get_fear_category(fear_value):
     else:
         return "Unknown"
 
+# ---------------------------- MAIN FUNCTION ----------------------------
+
 def fear_index():
     """
     Scrapes CNN's Fear & Greed Index, stores it in the database, and returns the current data.
     Returns a list containing the fear value, category, and stored date, or empty list if failed.
     """
     try:
-        driver.get("https://www.cnn.com/markets/fear-and-greed")    
-        logging.info("Navigated to Fear & Greed Index")
+        p = sync_playwright().start()
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        page = context.new_page()
 
-        results = []
+        page.goto("https://www.cnn.com/markets/fear-and-greed", timeout=30000)
+        logger.info("Navigated to Fear & Greed Index")
 
-        # Waits for fear value element to load
-        chart = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'dial-number-value')]"))
-        )
+        page.wait_for_selector("span.dial-number-value", timeout=15000)
 
-        time.sleep(2)
-
-        fear_value = int(chart.text.strip())
+        fear_value_text = page.locator("span.dial-number-value").first.text_content()
+        fear_value = int(fear_value_text.strip())
         category = get_fear_category(fear_value)
 
-        logging.info(f"Fear Value: {fear_value} - Category: {category}")
+        logger.info(f"Fear Value: {fear_value} - Category: {category}")
 
         store_fear_greed_index(fear_value, category)
         latest_entry = get_latest_fear_greed(1)
@@ -61,6 +59,17 @@ def fear_index():
             "Stored Date": latest_entry[0]["Date"] if latest_entry else "N/A"
         }]
 
-    except Exception as e:
-        logging.error(f"Unable to locate fear value: {e}")
+    except PlaywrightTimeout as e:
+        logger.error(f"Timeout while loading Fear & Greed index: {e}")
         return []
+
+    except Exception as e:
+        logger.error(f"Unable to locate fear value: {e}")
+        return []
+
+    finally:
+        try:
+            browser.close()
+            p.stop()
+        except Exception:
+            pass
