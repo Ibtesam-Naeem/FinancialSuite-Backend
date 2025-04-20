@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import uuid
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
@@ -20,7 +22,6 @@ logger = setup_logger("api")
 
 app = FastAPI(title="Market Dashboard API")
 
-# Allow CORS for local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize the scheduler
+scheduler = BackgroundScheduler()
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -127,6 +131,42 @@ def run_scrapers():
                 "error_type": type(e).__name__
             }
         })
+
+# ---------------------------- SCHEDULER SETUP ----------------------------
+
+def setup_scheduler():
+    """
+    Sets up a scheduler to run the scrapers at certain times
+    """
+    # Run economic data scraper once per week (Sunday at 4 PM)
+    scheduler.add_job(
+        scrape_and_store_economic_data,
+        CronTrigger(day_of_week='sun', hour='16', minute='0'),
+        id='economic_data',
+        name='Economic Data Scraper',
+        replace_existing=True
+    )
+    
+    # Run fear index scraper every hour
+    scheduler.add_job(
+        fear_index,
+        CronTrigger(hour='*', minute='0'),
+        id='fear_index',
+        name='Fear Index Scraper',
+        replace_existing=True
+    )
+    
+    # Run earnings scraper once per day (at 8 AM)
+    scheduler.add_job(
+        scrape_all_earnings,
+        CronTrigger(hour='8', minute='0'),
+        id='earnings',
+        name='Earnings Scraper',
+        replace_existing=True
+    )
+    
+    scheduler.start()
+    logger.info("Scheduler started successfully")
 
 # ---------------------------- MAIN ----------------------------
 
