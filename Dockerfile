@@ -31,6 +31,9 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
 # Copy the requirements first to leverage Docker cache
 COPY requirements.txt .
 
@@ -39,9 +42,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright CLI and browser
 RUN pip install playwright && playwright install chromium && playwright install-deps chromium
-
-# Create logs directory
-RUN mkdir -p logs && chmod 777 logs
 
 # Copy the rest of the application
 COPY . .
@@ -55,4 +55,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Start the application with Gunicorn
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "src.main:app"] 
+CMD ["gunicorn", "--chdir", "src", "--config", "../gunicorn.conf.py", "main:app"] 

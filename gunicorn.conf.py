@@ -38,10 +38,9 @@ tmp_upload_dir = None
 keyfile = None
 certfile = None
 
-# Application module
-pythonpath = '/app'
-
 # Debugging
 reload = False
 preload_app = True
-check_config = True 
+
+# Application module
+pythonpath = '/app' 
