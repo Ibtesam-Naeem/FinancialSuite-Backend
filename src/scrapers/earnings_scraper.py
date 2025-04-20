@@ -3,7 +3,8 @@ from utils.logger import setup_logger
 from utils.db_manager import store_earnings_data
 import time
 
-logger = setup_logger("EarningsScraper")
+# Set up logger with consistent naming
+logger = setup_logger("scraper.earnings")
 
 # ---------------------------- BROWSER FUNCTIONS ----------------------------
 
@@ -12,21 +13,27 @@ def open_earnings_calendar():
     Initializes Playwright Chromium and navigates
     to TradingView's Earnings Calendar.
     """
+    start_time = time.time()
     try:
+        logger.debug("Starting Playwright browser")
         p = sync_playwright().start()
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
         page = context.new_page()
         
-        logger.info("Initializing Playwright and opening earnings calendar page.")
+        logger.debug("Navigating to earnings calendar")
         page.goto("https://www.tradingview.com/markets/stocks-usa/earnings/", timeout=60000)
 
+        logger.debug("Waiting for data table to load")
         page.wait_for_selector(".tv-data-table", timeout=30000)
-        logger.info("Earnings calendar page loaded successfully.")
+        
+        duration = time.time() - start_time
+        logger.info(f"Earnings calendar loaded in {duration:.2f}s")
         return p, browser, page
 
     except Exception as e:
-        logger.error(f"Failed to open earnings calendar: {e}")
+        duration = time.time() - start_time
+        logger.error(f"Failed to open earnings calendar after {duration:.2f}s: {e}")
         return None, None, None
 
 # ---------------------------- DATA EXTRACTION ----------------------------
@@ -128,20 +135,30 @@ def scrape_all_earnings():
     2. Scrapes the earnings data
     3. Stores it in the database
     """
+    start_time = time.time()
+    
     p, browser, page = open_earnings_calendar()
     if not page:
-        logger.error("Browser initialization failed.")
+        logger.error("Browser initialization failed")
         return []
 
     try:
+        logger.debug("Starting earnings data scrape")
         earnings_data = scrape_earnings_data(page)
+        
         if earnings_data:
+            logger.debug(f"Found {len(earnings_data)} earnings records")
             store_earnings_data(earnings_data)
-            logger.info(f"Successfully stored {len(earnings_data)} earnings records in the database.")
+            duration = time.time() - start_time
+            logger.info(f"Complete earnings scrape finished in {duration:.2f}s")
+        else:
+            logger.warning("No earnings data found to store")
+            
         return earnings_data
 
     except Exception as e:
-        logger.error(f"Error scraping earnings: {e}")
+        duration = time.time() - start_time
+        logger.error(f"Error scraping earnings after {duration:.2f}s: {e}")
         return []
 
     finally:

@@ -1,13 +1,14 @@
 import subprocess
 import argparse
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+import uuid
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
 
-from utils.logger import setup_logger
+from utils.logger import setup_logger, get_request_logger
 
 from utils.db_manager import (
     get_latest_economic_events,
@@ -15,25 +16,58 @@ from utils.db_manager import (
     get_latest_fear_greed,
 )
 
-# Initialize logger
-logger = setup_logger("Main Script Logger")
+# Set up our main logger
+logger = setup_logger("api")
 
-# Initialize FastAPI
 app = FastAPI(title="Market Dashboard API")
 
-# Configure CORS
+# Allow CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # TODO: Make this more secure for prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Log all requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Generate an ID for this request
+    req_id = str(uuid.uuid4())
+    request.state.request_id = req_id
+    
+    # Get a logger with the request ID
+    log = get_request_logger(logger, req_id)
+    request.state.logger = log
+    
+    # Log basic request info
+    log.info("Got request", extra={
+        "extras": {
+            "method": request.method,
+            "url": str(request.url),
+            "client": request.client.host if request.client else None,
+            "user_agent": request.headers.get("user-agent")
+        }
+    })
+    
+    # Handle the request
+    response = await call_next(request)
+    
+    # Log the response
+    log.info("Request finished", extra={
+        "extras": {
+            "status": response.status_code
+        }
+    })
+    
+    return response
+
 # ---------------------------- API ENDPOINTS ----------------------------
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    request.state.logger.info("Someone hit the root endpoint")
     return {"message": "Market Dashboard API"}
 
 @app.get("/economic-events")
@@ -41,8 +75,8 @@ async def get_economic_events(limit: int = 10):
     try:
         events = get_latest_economic_events(limit)
         return {"status": "success", "data": events}
-    
     except Exception as e:
+        logger.error(f"Failed to get economic events: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/earnings")
@@ -50,8 +84,8 @@ async def get_earnings(limit: int = 10):
     try:
         earnings = get_latest_earnings(limit)
         return {"status": "success", "data": earnings}
-    
     except Exception as e:
+        logger.error(f"Failed to get earnings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/market-holidays")
@@ -59,8 +93,8 @@ async def get_market_holidays(limit: int = 10):
     try:
         holidays = get_market_holidays(limit)
         return {"status": "success", "data": holidays}
-    
     except Exception as e:
+        logger.error(f"Failed to get market holidays: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/fear-greed")
@@ -68,29 +102,31 @@ async def get_fear_greed(limit: int = 1):
     try:
         fear_data = get_latest_fear_greed(limit)
         return {"status": "success", "data": fear_data}
-    
     except Exception as e:
+        logger.error(f"Failed to get fear/greed index: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
-    """
-    Runs all the scrapers to collect
-    all the market data
-    """
+    """Run all our scrapers to get fresh data"""
     try:
-        # Scrape and store economic events
+        logger.info("Starting scrapers...")
+        
+        # Run each scraper
         scrape_and_store_economic_data()
-        
-        # # Get fear index
         fear_index()
-        
-        # Get earnings data
         scrape_all_earnings()
         
+        logger.info("All scrapers finished!")
+        
     except Exception as e:
-        logger.error(f"Error running scrapers: {e}")
+        # Log any errors that happen
+        logger.error(f"Scraper error: {str(e)}", extra={
+            "extras": {
+                "error_type": type(e).__name__
+            }
+        })
 
 # ---------------------------- MAIN ----------------------------
 
@@ -104,7 +140,7 @@ def main():
             run_scrapers()
             
         if args.mode in ["api", "both"]:
-            # Run FastAPI server
+            # Start the API server
             subprocess.run(
                 ["uvicorn", "main:app", "--reload", "--port", "8000"],
                 check=True

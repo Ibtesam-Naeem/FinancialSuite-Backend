@@ -4,7 +4,8 @@ from utils.logger import setup_logger
 from utils.db_manager import store_economic_data
 import time
 
-logger = setup_logger("EconScraper")
+# Set up logger with consistent naming
+logger = setup_logger("scraper.economic")
 
 # ---------------------------- HELPER FUNCTIONS ----------------------------
 
@@ -13,7 +14,9 @@ def clean_text(value):
     Removes newline characters and trims spaces from text values.
     Returns 'N/A' if value is None.
     """
-    return value.replace("\n", "").strip() if value else "N/A"
+    cleaned = value.replace("\n", "").strip() if value else "N/A"
+    logger.debug(f"Cleaned text value: {value} -> {cleaned}")
+    return cleaned
 
 def format_date(date_string):
     """
@@ -36,20 +39,27 @@ def open_economic_calendar():
         tuple: (playwright, browser, page) if successful
         tuple: (None, None, None) if initialization fails
     """
+    start_time = time.time()
     try:
+        logger.debug("Starting Playwright browser")
         p = sync_playwright().start()
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
 
-        logger.info("Initializing Playwright and opening economic calendar page.")
+        logger.debug("Navigating to economic calendar")
         page.goto("https://www.tradingview.com/symbols/USDCAD/economic-calendar/?exchange=FX_IDC", timeout=60000)
+        
+        logger.debug("Waiting for calendar items to load")
         page.wait_for_selector("div[data-name*='economic-calendar-item']", timeout=30000)
-        logger.info("Economic calendar page loaded successfully.")
-
+        
+        duration = time.time() - start_time
+        logger.info(f"Economic calendar loaded in {duration:.2f}s")
         return p, browser, page
+        
     except Exception as e:
-        logger.error(f"Failed to open economic calendar: {e}")
+        duration = time.time() - start_time
+        logger.error(f"Failed to open economic calendar after {duration:.2f}s: {e}")
         return None, None, None
 
 def filter_option(page):
@@ -58,24 +68,27 @@ def filter_option(page):
     1. Clicks "High Importance" filter
     2. Selects "This Week" timeframe
     """
+    start_time = time.time()
     try:
-        logger.info("Finding the High Importance button.")
+        logger.debug("Looking for importance filter button")
         importance_button = page.locator('button:has-text("Importance")')
         importance_button.scroll_into_view_if_needed()
         time.sleep(1)
         importance_button.click()
-        logger.info("Importance button clicked successfully.")
-    except Exception as e:
-        logger.error(f"Failed to click Importance button: {e}")
-
-    try:
-        logger.info("Selecting 'This Week' option")
+        logger.debug("Clicked importance filter")
+        
+        logger.debug("Looking for 'This Week' button")
         this_week_button = page.locator('button:has-text("This week")')
         this_week_button.scroll_into_view_if_needed()
         time.sleep(1)
         this_week_button.click()
+        
+        duration = time.time() - start_time
+        logger.debug(f"Applied calendar filters in {duration:.2f}s")
+        
     except Exception as e:
-        logger.error(f"Failed to select 'This Week': {e}")
+        duration = time.time() - start_time
+        logger.error(f"Failed to apply filters after {duration:.2f}s: {e}")
 
 # ---------------------------- DATA EXTRACTION ----------------------------
 
@@ -162,23 +175,34 @@ def scrape_and_store_economic_data():
         list: Scraped economic data if successful
         empty list: If any step fails
     """
+    start_time = time.time()
+    
     p, browser, page = open_economic_calendar()
     if not page:
-        logger.error("Browser initialization failed.")
+        logger.error("Browser initialization failed")
         return []
 
     try:
+        logger.debug("Applying calendar filters")
         filter_option(page)
         time.sleep(2)
+        
+        logger.debug("Starting economic data scrape")
         economic_data = scrape_economic_data(page)
 
         if economic_data:
+            logger.debug(f"Found {len(economic_data)} economic events")
             store_economic_data(economic_data)
-            logger.info(f"Stored {len(economic_data)} economic events in the database.")
+            duration = time.time() - start_time
+            logger.info(f"Complete economic scrape finished in {duration:.2f}s")
             return economic_data
+        else:
+            logger.warning("No economic data found to store")
+            return []
 
     except Exception as e:
-        logger.error(f"Error scraping economic data: {e}")
+        duration = time.time() - start_time
+        logger.error(f"Error scraping economic data after {duration:.2f}s: {e}")
         return []
 
     finally:

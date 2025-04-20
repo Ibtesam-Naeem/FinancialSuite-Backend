@@ -3,8 +3,10 @@ import psycopg2
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 from utils.logger import setup_logger
+import time
 
-logger = setup_logger("DB Logger")
+# Set up logger with consistent naming
+logger = setup_logger("database")
 
 load_dotenv()
 DB_URL = os.getenv("DB_URL")
@@ -12,7 +14,14 @@ DB_URL = os.getenv("DB_URL")
 
 def get_db_connection():
     """Establishes a connection to the PostgreSQL database."""
-    return psycopg2.connect(DB_URL)
+    start_time = time.time()
+    try:
+        conn = psycopg2.connect(DB_URL)
+        logger.debug(f"DB connection established in {(time.time() - start_time):.2f}s")
+        return conn
+    except Exception as e:
+        logger.error(f"Failed to connect to DB after {(time.time() - start_time):.2f}s: {e}")
+        raise
 
 # --------------------- EARNINGS REPORT DATABASE FUNCTIONS ---------------------
 
@@ -22,13 +31,16 @@ def store_earnings_data(data):
     Prevents duplicates and updates existing records.
     """
     if not data:
-        logger.info("No earnings data to store.")
+        logger.debug("No earnings data provided to store")
         return
 
+    start_time = time.time()
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
+        # Log table creation attempt
+        logger.debug("Ensuring earnings_reports table exists")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS earnings_reports (
                 id SERIAL PRIMARY KEY,
@@ -45,6 +57,9 @@ def store_earnings_data(data):
         """)
         conn.commit()
 
+        # Log the insert operation
+        logger.debug(f"Attempting to store {len(data)} earnings records")
+        
         insert_query = """
         INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
         VALUES %s
@@ -72,10 +87,12 @@ def store_earnings_data(data):
 
         execute_values(cur, insert_query, data_values)
         conn.commit()
-        logger.info(f"Successfully stored {len(data)} earnings reports in the database.")
+        duration = time.time() - start_time
+        logger.info(f"Successfully stored {len(data)} earnings reports in {duration:.2f}s")
 
     except Exception as e:
-        logger.error(f"Database error (Earnings Reports): {e}")
+        duration = time.time() - start_time
+        logger.error(f"Database error (Earnings Reports) after {duration:.2f}s: {e}")
     
     finally:
         cur.close()
