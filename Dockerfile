@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Installs the system dependencies for Playwright
+# Install system dependencies for Playwright and Chrome
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -13,24 +13,40 @@ RUN apt-get update && apt-get install -y \
     && apt-get update \
     && apt-get install -y \
     google-chrome-stable \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements first to leverage Docker cache
 COPY requirements.txt .
 
-# Installs the Python dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Installs the Playwright browsers
-RUN playwright install chromium
+# Install Playwright with its dependencies
+RUN playwright install chromium && playwright install-deps chromium
 
-# Copies the rest of the application
+# Copy the rest of the application
 COPY . .
 
-# Creates the logs directory
+# Create logs directory
 RUN mkdir -p logs
 
-# Sets the environment variables
+# Set environment variables
 ENV ENVIRONMENT=production
 ENV LOG_DIR=/app/logs
 
