@@ -58,6 +58,7 @@ def scrape_earnings_data(page):
         this_week_button.wait_for(timeout=10000)
         this_week_button.click()
         logger.info("Clicked on 'This Week' button.")
+        
     except PlaywrightTimeout as e:
         logger.error(f"Failed to click on 'This Week' button: {e}")
 
@@ -74,6 +75,7 @@ def scrape_earnings_data(page):
                 time.sleep(1)
             else:
                 break
+            
         except Exception:
             logger.info("No more data to load.")
             break

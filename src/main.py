@@ -16,7 +16,6 @@ from utils.db_manager import (
     get_latest_fear_greed,
 )
 
-# Set up our main logger
 logger = setup_logger("api")
 
 app = FastAPI(title="Market Dashboard API")
@@ -24,24 +23,21 @@ app = FastAPI(title="Market Dashboard API")
 # Allow CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Make this more secure for prod
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Log all requests
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    # Generate an ID for this request
     req_id = str(uuid.uuid4())
     request.state.request_id = req_id
     
-    # Get a logger with the request ID
     log = get_request_logger(logger, req_id)
     request.state.logger = log
     
-    # Log basic request info
+    # Logs basic request info
     log.info("Got request", extra={
         "extras": {
             "method": request.method,
@@ -51,10 +47,10 @@ async def log_requests(request: Request, call_next):
         }
     })
     
-    # Handle the request
+    # Handles the request
     response = await call_next(request)
     
-    # Log the response
+    # Logs the response
     log.info("Request finished", extra={
         "extras": {
             "status": response.status_code
@@ -75,6 +71,7 @@ async def get_economic_events(limit: int = 10):
     try:
         events = get_latest_economic_events(limit)
         return {"status": "success", "data": events}
+    
     except Exception as e:
         logger.error(f"Failed to get economic events: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -84,6 +81,7 @@ async def get_earnings(limit: int = 10):
     try:
         earnings = get_latest_earnings(limit)
         return {"status": "success", "data": earnings}
+    
     except Exception as e:
         logger.error(f"Failed to get earnings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -93,6 +91,7 @@ async def get_market_holidays(limit: int = 10):
     try:
         holidays = get_market_holidays(limit)
         return {"status": "success", "data": holidays}
+    
     except Exception as e:
         logger.error(f"Failed to get market holidays: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -102,6 +101,7 @@ async def get_fear_greed(limit: int = 1):
     try:
         fear_data = get_latest_fear_greed(limit)
         return {"status": "success", "data": fear_data}
+    
     except Exception as e:
         logger.error(f"Failed to get fear/greed index: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -145,8 +145,10 @@ def main():
                 ["uvicorn", "main:app", "--reload", "--port", "8000"],
                 check=True
             )
+
     except KeyboardInterrupt:
         print("\nShutting down...")
+
     except Exception as e:
         print(f"Error: {e}")
 

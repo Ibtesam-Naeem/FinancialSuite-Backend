@@ -19,6 +19,7 @@ def get_db_connection():
         conn = psycopg2.connect(DB_URL)
         logger.debug(f"DB connection established in {(time.time() - start_time):.2f}s")
         return conn
+    
     except Exception as e:
         logger.error(f"Failed to connect to DB after {(time.time() - start_time):.2f}s: {e}")
         raise
@@ -414,8 +415,10 @@ def create_top_stocks_table():
         """)
         conn.commit()
         logger.info("Top stocks table created or already exists.")
+
     except Exception as e:
         logger.error(f"Error creating top_stocks table: {e}")
+
     finally:
         if 'conn' in locals():
             conn.close()
@@ -435,9 +438,11 @@ def execute_query(query, params=None):
         else:
             cur.execute(query)
         conn.commit()
+
     except Exception as e:
         conn.rollback()
         raise e
+    
     finally:
         cur.close()
         conn.close()

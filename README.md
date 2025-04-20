@@ -37,8 +37,6 @@ touch .env
 # Add required variables
 POLYGON_API_KEY=your_polygon_api_key
 DB_URL=your_postgres_database_url
-CHROME_BINARY_PATH=/path/to/chrome  
-CHROMEDRIVER_PATH=/path/to/chromedriver  
 ```
 
 ## Usage
@@ -62,12 +60,15 @@ python -m marketdashboard.main --mode api
 
 ### API Endpoints
 
+The API is deployed at: https://sea-turtle-app-hbqlx.ondigitalocean.app/
+
+Available endpoints:
 - `GET /earnings`: Latest earnings reports
 - `GET /economic-events`: High-importance economic events
 - `GET /fear-greed`: Current Fear & Greed Index
 - `GET /premarket`: Pre-market gainers and losers
 
-Access API documentation at: `http://localhost:8000/docs`
+- Production: https://sea-turtle-app-hbqlx.ondigitalocean.app/docs
 
 ## Project Structure
 
@@ -81,7 +82,6 @@ marketdashboard/
 │   ├── fear_sentiment.py
 │   └── premarket_movers.py
 ├── utils/
-│   ├── chrome_options.py
 │   ├── db_manager.py
 │   └── logger.py
 └── main.py
@@ -90,7 +90,7 @@ marketdashboard/
 ## Dependencies
 
 - FastAPI: Web framework for API
-- Selenium: Web scraping
+- Playwright: Web scraping and browser automation
 - psycopg2: PostgreSQL database connection
 - requests: HTTP requests for APIs
 - python-dotenv: Environment variable management
@@ -106,11 +106,6 @@ The service uses PostgreSQL with the following tables:
 ## Notes
 
 - Pre-market data is only available during market pre-market hours (4:00 AM - 9:30 AM ET)
-- Requires Chrome and ChromeDriver for web scraping
+- Requires Playwright for web scraping
 - Designed to run as a data service for other applications
-```
-
-You can create this file by running:
-```bash
-touch marketdashboard/README.md
-```
+- Production deployment: https://sea-turtle-app-hbqlx.ondigitalocean.app/

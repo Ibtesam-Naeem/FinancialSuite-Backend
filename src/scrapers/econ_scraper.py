@@ -26,6 +26,7 @@ def format_date(date_string):
     """
     try:
         return datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d %H:%M:%S")
+    
     except ValueError:
         return date_string 
 
@@ -33,11 +34,8 @@ def format_date(date_string):
 
 def open_economic_calendar():
     """
-    Initializes Playwright and navigates to TradingView's USDCAD Economic Calendar.
-    
-    Returns:
-        tuple: (playwright, browser, page) if successful
-        tuple: (None, None, None) if initialization fails
+    Initializes Playwright and navigates to TradingView's 
+    USDCAD Economic Calendar.
     """
     start_time = time.time()
     try:
@@ -109,6 +107,7 @@ def scrape_economic_data(page):
 
     try:
         page.wait_for_selector("div[data-name*='economic-calendar-item']", timeout=10000)
+        
     except PlaywrightTimeout:
         logger.warning("No economic calendar data available. Skipping scrape.")
         return []
@@ -170,10 +169,6 @@ def scrape_and_store_economic_data():
     2. Applies filters
     3. Scrapes the data
     4. Stores it in the database
-
-    Returns:
-        list: Scraped economic data if successful
-        empty list: If any step fails
     """
     start_time = time.time()
     
