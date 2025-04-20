@@ -1,5 +1,6 @@
 # Gunicorn configuration file
 import multiprocessing
+import os
 
 # Server socket
 bind = "0.0.0.0:8000"
@@ -12,10 +13,15 @@ worker_connections = 1000
 timeout = 120
 keepalive = 2
 
+# Create log directory if it doesn't exist
+os.makedirs("/app/logs", exist_ok=True)
+
 # Logging
 accesslog = "/app/logs/access.log"
 errorlog = "/app/logs/error.log"
 loglevel = "info"
+capture_output = True
+enable_stdio_inheritance = True
 
 # Process naming
 proc_name = "market_dashboard"
@@ -30,4 +36,7 @@ tmp_upload_dir = None
 
 # SSL
 keyfile = None
-certfile = None 
+certfile = None
+
+# Application module
+pythonpath = '/app' 

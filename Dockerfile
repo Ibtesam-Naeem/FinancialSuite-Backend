@@ -40,18 +40,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Playwright CLI and browser
 RUN pip install playwright && playwright install chromium && playwright install-deps chromium
 
+# Create logs directory
+RUN mkdir -p logs && chmod 777 logs
+
 # Copy the rest of the application
 COPY . .
-
-# Create logs directory
-RUN mkdir -p logs
 
 # Set environment variables
 ENV ENVIRONMENT=production
 ENV LOG_DIR=/app/logs
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 8000
 
 # Start the application with Gunicorn
-CMD ["gunicorn", "src.main:app", "--config", "gunicorn.conf.py"] 
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "src.main:app"] 
