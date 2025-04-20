@@ -7,7 +7,7 @@ bind = "0.0.0.0:8000"
 backlog = 2048
 
 # Worker processes
-workers = 2  # Start with a smaller number for debugging
+workers = 2
 worker_class = "uvicorn.workers.UvicornWorker"
 worker_connections = 1000
 timeout = 120
@@ -19,7 +19,7 @@ os.makedirs("/app/logs", exist_ok=True)
 # Logging
 accesslog = "/app/logs/access.log"
 errorlog = "/app/logs/error.log"
-loglevel = "debug"  # Temporarily set to debug for more info
+loglevel = "debug"
 capture_output = True
 enable_stdio_inheritance = True
 
@@ -38,9 +38,7 @@ tmp_upload_dir = None
 keyfile = None
 certfile = None
 
-# Debugging
-reload = False
-preload_app = True
-
-# Application module
-pythonpath = '/app' 
+# Application settings
+chdir = "/app/src"
+pythonpath = "/app/src"
+preload_app = True 

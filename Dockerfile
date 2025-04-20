@@ -49,10 +49,10 @@ COPY . .
 # Set environment variables
 ENV ENVIRONMENT=production
 ENV LOG_DIR=/app/logs
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 
 # Expose port
 EXPOSE 8000
 
 # Start the application with Gunicorn
-CMD ["gunicorn", "--chdir", "src", "--config", "../gunicorn.conf.py", "main:app"] 
+CMD ["gunicorn", "main:app", "--config", "gunicorn.conf.py"] 
