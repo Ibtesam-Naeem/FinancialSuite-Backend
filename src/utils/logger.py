@@ -61,23 +61,21 @@ def setup_logger(name=None):
     logger.addHandler(console)
 
     # File output - JSON for easier searching in prod
-    if os.getenv("ENVIRONMENT") == "production":
-        try:
-            log_dir = os.getenv("LOG_DIR", "/app/logs")
-            os.makedirs(log_dir, exist_ok=True)
-            
-            file_handler = logging.handlers.RotatingFileHandler(
-                f"{log_dir}/{name or 'app'}.log",
-                maxBytes=10 * 1024 * 1024,  # 10MB
-                backupCount=3,  # Keep 3 backup files
-                mode='a',  # Append mode
-                encoding='utf-8'
-            )
-            file_handler.setFormatter(JSONFormatter())
-            logger.addHandler(file_handler)
-        except Exception as e:
-            # Log to console if file logging fails
-            logger.warning(f"Couldn't set up file logging: {e}")
+    try:
+        log_dir = os.getenv("LOG_DIR", "logs")
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        
+        file_handler = logging.handlers.RotatingFileHandler(
+            f"{log_dir}/{name or 'app'}.log",
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=3  # Keep 3 backup files
+        )
+        file_handler.setFormatter(JSONFormatter())
+        logger.addHandler(file_handler)
+    except Exception as e:
+        # Don't crash if we can't write to files
+        logger.warning(f"Couldn't set up file logging: {e}")
     
     return logger
 
