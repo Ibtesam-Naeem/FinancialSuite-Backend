@@ -113,11 +113,14 @@ async def get_fear_greed(limit: int = 1):
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
-    """Run all our scrapers to get fresh data"""
+    """
+    Runs all of the  scrapers to get
+    the latest data
+    """
     try:
         logger.info("Starting scrapers...")
         
-        # Run each scraper
+        # Runs each scraper
         scrape_and_store_economic_data()
         fear_index()
         scrape_all_earnings()
@@ -125,7 +128,6 @@ def run_scrapers():
         logger.info("All scrapers finished!")
         
     except Exception as e:
-        # Log any errors that happen
         logger.error(f"Scraper error: {str(e)}", extra={
             "extras": {
                 "error_type": type(e).__name__
@@ -147,7 +149,7 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    # Run fear index scraper every hour
+    # Runs fear index scraper every hour
     scheduler.add_job(
         fear_index,
         CronTrigger(hour='*', minute='0'),
@@ -156,7 +158,7 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    # Run earnings scraper once per day (at 8 AM)
+    # Runs earnings scraper once per day (at 8 AM)
     scheduler.add_job(
         scrape_all_earnings,
         CronTrigger(hour='8', minute='0'),
