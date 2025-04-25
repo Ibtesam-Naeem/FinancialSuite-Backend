@@ -179,13 +179,16 @@ def main():
     args = parser.parse_args()
     
     try:
+        # Start the scheduler
+        setup_scheduler()
+        
         if args.mode in ["scraper", "both"]:
             run_scrapers()
             
         if args.mode in ["api", "both"]:
             # Start the API server
             subprocess.run(
-                ["uvicorn", "main:app", "--reload", "--port", "8000"],
+                ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
                 check=True
             )
 
