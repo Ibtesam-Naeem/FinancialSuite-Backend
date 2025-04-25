@@ -82,6 +82,3 @@ def fetch_and_store_market_holidays():
         logger.warning(f"No market holidays found after {duration:.2f}s")
 
 # ------------------------------ RUN SCRAPERS ------------------------------
-
-if __name__ == "__main__":
-    fetch_and_store_market_holidays()

@@ -9,7 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
-
+from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger, get_request_logger
 
 from utils.db_manager import (
@@ -124,7 +124,8 @@ def run_scrapers():
         scrape_and_store_economic_data()
         fear_index()
         scrape_all_earnings()
-        
+        fetch_and_store_market_holidays()
+
         logger.info("All scrapers finished!")
         
     except Exception as e:

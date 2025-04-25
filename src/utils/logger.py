@@ -44,33 +44,26 @@ def setup_logger(name=None):
     if logger.handlers:
         return logger
     
+    # Always add console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(JSONFormatter())
+    logger.addHandler(console_handler)
+    
     if os.getenv("ENVIRONMENT") == "dev":
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-
-    console = logging.StreamHandler()
-    console.setFormatter(logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        '%Y-%m-%d %H:%M:%S'
-    ))
-    logger.addHandler(console)
-
-    try:
-        log_dir = os.getenv("LOG_DIR", "logs")
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+        # Add file handler for production
+        log_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
         
         file_handler = logging.handlers.RotatingFileHandler(
-            f"{log_dir}/{name or 'app'}.log",
-            maxBytes=10 * 1024 * 1024,
-            backupCount=1  
+            os.path.join(log_dir, "app.log"),
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5
         )
         file_handler.setFormatter(JSONFormatter())
         logger.addHandler(file_handler)
-
-    except Exception as e:
-        logger.warning(f"Couldn't set up file logging: {e}")
     
     return logger
 
