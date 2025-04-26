@@ -3,9 +3,9 @@ import psycopg2
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 from utils.logger import setup_logger
+from datetime import datetime
 import time
 
-# Set up logger with consistent naming
 logger = setup_logger("database")
 
 load_dotenv()
@@ -290,14 +290,12 @@ def get_latest_fear_greed(limit=10):
     conn.close()
     return fear_greed_data
 
-# --------------------- MARKET HOLIDAYS DATABASE FUNCTIONS ---------------------
+# ---------------------------- STORE MARKET HOLIDAYS ----------------------------
 
 def store_market_holidays(holidays_data):
     """
-    Stores market holidays data in the PostgreSQL database.
-    
-    :param holidays_data: List of dictionaries containing holiday information
-    :return: True if successful, False otherwise
+    Stores the Fear & Greed Index value in PostgreSQL.
+    Prevents duplicate entries for the same date.
     """
     if not holidays_data:
         logger.info("No market holidays data to store.")
@@ -307,7 +305,6 @@ def store_market_holidays(holidays_data):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Create the table if it doesn't exist
         cur.execute("""
             CREATE TABLE IF NOT EXISTS market_holidays (
                 id SERIAL PRIMARY KEY,
@@ -322,13 +319,10 @@ def store_market_holidays(holidays_data):
         """)
         conn.commit()
 
-        # Insert or update the holiday data
         for holiday in holidays_data:
             try:
-                # Parse date string to proper format
-                from datetime import datetime
                 holiday_date = datetime.strptime(holiday["date"], "%Y-%m-%d").date()
-                
+
                 cur.execute("""
                     INSERT INTO market_holidays (name, date, status, exchange, year)
                     VALUES (%s, %s, %s, %s, %s)
@@ -345,7 +339,7 @@ def store_market_holidays(holidays_data):
                 ))
                 conn.commit()
             except Exception as e:
-                logger.error(f"Error storing holiday {holiday['name']}: {e}")
+                logger.error(f"Error storing holiday {holiday.get('name', 'Unknown')}: {e}")
                 conn.rollback()
 
         logger.info(f"Successfully stored {len(holidays_data)} market holidays in the database.")
@@ -357,20 +351,23 @@ def store_market_holidays(holidays_data):
         logger.error(f"Database error (Market Holidays): {e}")
         return False
 
-def get_latest_market_holidays():
+def get_latest_market_holidays(limit: int = 10):
     """
     Fetches the latest market holidays from the database.
+
+    :param limit: Number of holidays to fetch
+    :return: List of holidays
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("""
+        cur.execute(f"""
             SELECT name, date, status, exchange, year
             FROM market_holidays
             WHERE date >= CURRENT_DATE
             ORDER BY date ASC
-            LIMIT 10;
+            LIMIT {limit};
         """)
 
         rows = cur.fetchall()
@@ -388,7 +385,7 @@ def get_latest_market_holidays():
         cur.close()
         conn.close()
         return holidays_data
-    
+
     except Exception as e:
         logger.error(f"Error fetching market holidays: {e}")
         return []
