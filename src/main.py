@@ -65,14 +65,6 @@ async def log_requests(request: Request, call_next):
 
 # ---------------------------- API ENDPOINTS ----------------------------
 
-@app.get("/")
-async def root(request: Request):
-    """
-    Root endpoint.
-    """
-    request.state.logger.info("Root endpoint hit")
-    return {"message": "Market Dashboard API"}
-
 @app.get("/economic-events")
 async def get_economic_events(limit: int = 10):
     """
@@ -125,35 +117,6 @@ async def get_fear_greed(limit: int = 1):
         logger.error(f"Failed to get fear/greed index: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/status")
-async def get_status():
-    """
-    Returns the current status of the application and scheduler.
-    """
-    try:
-        scheduler_status = {
-            "running": scheduler.running,
-            "jobs": [
-                {
-                    "id": job.id,
-                    "name": job.name,
-                    "next_run_time": str(job.next_run_time) if job.next_run_time else None
-                }
-                for job in scheduler.get_jobs()
-            ]
-        }
-        return {
-            "status": "success",
-            "data": {
-                "application": "running",
-                "scheduler": scheduler_status,
-                "environment": os.getenv("ENVIRONMENT", "dev"),
-                "current_time": datetime.now().isoformat()
-            }
-        }
-    except Exception as e:
-        logger.error(f"Status check error: {e}")
-        return {"status": "error", "message": str(e)}
 
 @app.get("/trigger-scrapers")
 async def trigger_scrapers():
