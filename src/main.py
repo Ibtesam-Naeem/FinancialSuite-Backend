@@ -180,6 +180,7 @@ def main():
     args = parser.parse_args()
     
     try:
+        print("Starting application...")  # This will always print to stdout
         logger.info("Starting application...", extra={
             "extras": {
                 "mode": args.mode,
@@ -188,13 +189,16 @@ def main():
         })
         
         # Start the scheduler
+        print("Setting up scheduler...")
         setup_scheduler()
         
         if args.mode in ["scraper", "both"]:
+            print("Running initial scrapers...")
             logger.info("Running initial scrapers...")
             run_scrapers()
             
         if args.mode in ["api", "both"]:
+            print("Starting API server...")
             logger.info("Starting API server...")
             # Start the API server
             subprocess.run(
@@ -203,16 +207,16 @@ def main():
             )
 
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
         print("\nShutting down...")
+        logger.info("Shutting down...")
 
     except Exception as e:
+        print(f"Error: {e}")
         logger.error(f"Application error: {str(e)}", extra={
             "extras": {
                 "error_type": type(e).__name__
             }
         })
-        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main() 

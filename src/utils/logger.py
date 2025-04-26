@@ -3,6 +3,7 @@ import logging.handlers
 import os
 import json
 from datetime import datetime
+import sys
 
 class JSONFormatter(logging.Formatter):
     def __init__(self):
@@ -44,9 +45,12 @@ def setup_logger(name=None):
     if logger.handlers:
         return logger
     
-    # Always add console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(JSONFormatter())
+    # Always add console handler with basic format for stdout
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        '%Y-%m-%d %H:%M:%S'
+    ))
     logger.addHandler(console_handler)
     
     if os.getenv("ENVIRONMENT") == "dev":
