@@ -11,6 +11,7 @@ from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
 from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger, get_request_logger
+import os
 
 from utils.db_manager import (
     get_latest_economic_events,
@@ -179,13 +180,22 @@ def main():
     args = parser.parse_args()
     
     try:
+        logger.info("Starting application...", extra={
+            "extras": {
+                "mode": args.mode,
+                "environment": os.getenv("ENVIRONMENT", "dev")
+            }
+        })
+        
         # Start the scheduler
         setup_scheduler()
         
         if args.mode in ["scraper", "both"]:
+            logger.info("Running initial scrapers...")
             run_scrapers()
             
         if args.mode in ["api", "both"]:
+            logger.info("Starting API server...")
             # Start the API server
             subprocess.run(
                 ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
@@ -193,9 +203,15 @@ def main():
             )
 
     except KeyboardInterrupt:
+        logger.info("Shutting down...")
         print("\nShutting down...")
 
     except Exception as e:
+        logger.error(f"Application error: {str(e)}", extra={
+            "extras": {
+                "error_type": type(e).__name__
+            }
+        })
         print(f"Error: {e}")
 
 if __name__ == "__main__":
