@@ -1,19 +1,17 @@
-import subprocess
+import os
+import uuid
 import argparse
+from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-import uuid
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
 from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger, get_request_logger
-import os
-from datetime import datetime
-
 from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
@@ -32,18 +30,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the scheduler
 scheduler = BackgroundScheduler()
+
+# ---------------------------- MIDDLEWARE ----------------------------
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """
+    Middleware to log incoming requests and responses.
+    """
     req_id = str(uuid.uuid4())
     request.state.request_id = req_id
-    
     log = get_request_logger(logger, req_id)
     request.state.logger = log
-    
-    # Logs basic request info
+
     log.info("Got request", extra={
         "extras": {
             "method": request.method,
@@ -52,86 +52,96 @@ async def log_requests(request: Request, call_next):
             "user_agent": request.headers.get("user-agent")
         }
     })
-    
-    # Handles the request
+
     response = await call_next(request)
-    
-    # Logs the response
+
     log.info("Request finished", extra={
         "extras": {
             "status": response.status_code
         }
     })
-    
+
     return response
 
 # ---------------------------- API ENDPOINTS ----------------------------
 
 @app.get("/")
 async def root(request: Request):
-    request.state.logger.info("Someone hit the root endpoint")
+    """
+    Root endpoint.
+    """
+    request.state.logger.info("Root endpoint hit")
     return {"message": "Market Dashboard API"}
 
 @app.get("/economic-events")
 async def get_economic_events(limit: int = 10):
+    """
+    Get latest economic events.
+    """
     try:
         events = get_latest_economic_events(limit)
         return {"status": "success", "data": events}
-    
+
     except Exception as e:
-        logger.error(f"Failed to get economic events: {str(e)}")
+        logger.error(f"Failed to get economic events: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/earnings")
 async def get_earnings(limit: int = 10):
+    """
+    Get latest earnings data.
+    """
     try:
         earnings = get_latest_earnings(limit)
         return {"status": "success", "data": earnings}
-    
+
     except Exception as e:
-        logger.error(f"Failed to get earnings: {str(e)}")
+        logger.error(f"Failed to get earnings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/market-holidays")
 async def get_market_holidays(limit: int = 10):
+    """
+    Gets upcoming market holidays.
+    """
     try:
-        holidays = get_market_holidays(limit)
+        holidays = fetch_and_store_market_holidays(limit)
         return {"status": "success", "data": holidays}
-    
+
     except Exception as e:
-        logger.error(f"Failed to get market holidays: {str(e)}")
+        logger.error(f"Failed to get market holidays: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @app.get("/fear-greed")
 async def get_fear_greed(limit: int = 1):
+    """
+    Gets latest fear & greed index.
+    """
     try:
         fear_data = get_latest_fear_greed(limit)
         return {"status": "success", "data": fear_data}
-    
+
     except Exception as e:
-        logger.error(f"Failed to get fear/greed index: {str(e)}")
+        logger.error(f"Failed to get fear/greed index: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/status")
 async def get_status():
     """
-    Returns the current status of the application and scheduler
+    Returns the current status of the application and scheduler.
     """
     try:
-        # Get scheduler status
         scheduler_status = {
             "running": scheduler.running,
-            "jobs": []
+            "jobs": [
+                {
+                    "id": job.id,
+                    "name": job.name,
+                    "next_run_time": str(job.next_run_time) if job.next_run_time else None
+                }
+                for job in scheduler.get_jobs()
+            ]
         }
-        
-        # Get all scheduled jobs
-        for job in scheduler.get_jobs():
-            scheduler_status["jobs"].append({
-                "id": job.id,
-                "name": job.name,
-                "next_run_time": str(job.next_run_time) if job.next_run_time else None
-            })
-        
         return {
             "status": "success",
             "data": {
@@ -141,97 +151,76 @@ async def get_status():
                 "current_time": datetime.now().isoformat()
             }
         }
-    
     except Exception as e:
-        logger.error(f"Status check error: {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        logger.error(f"Status check error: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.get("/trigger-scrapers")
 async def trigger_scrapers():
     """
-    Manually triggers all scrapers and returns their status
+    Manually triggers all scrapers immediately.
     """
     try:
         if not scheduler.running:
             scheduler.start()
-            
-        # Run all scrapers immediately
         run_scrapers()
-        
-        return {
-            "status": "success",
-            "message": "Scrapers triggered successfully",
-            "scheduler_running": scheduler.running
-        }
-    
+        return {"status": "success", "message": "Scrapers triggered successfully"}
     except Exception as e:
-        logger.error(f"Error triggering scrapers: {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        logger.error(f"Error triggering scrapers: {e}")
+        return {"status": "error", "message": str(e)}
 
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
     """
-    Runs all of the  scrapers to get
-    the latest data
+    Runs all scrapers sequentially.
     """
     try:
         logger.info("Starting scrapers...")
-        
-        # Runs each scraper
-        scrape_and_store_economic_data()
-        fear_index()
-        scrape_all_earnings()
-        fetch_and_store_market_holidays()
 
-        logger.info("All scrapers finished!")
-        
+        # Scrape and store economic data
+        scrape_and_store_economic_data()
+
+        # Scrape fear index
+        fear_index()
+
+        # Scrape all earnings
+        scrape_all_earnings()
+
+        # Fetch and store market holidays
+        fetch_and_store_market_holidays()
+        logger.info("All scrapers finished successfully")
+
     except Exception as e:
-        logger.error(f"Scraper error: {str(e)}", extra={
-            "extras": {
-                "error_type": type(e).__name__
-            }
-        })
+        logger.error(f"Scraper error: {e}")
 
 # ---------------------------- SCHEDULER SETUP ----------------------------
 
 def setup_scheduler():
     """
-    Sets up a scheduler to run the scrapers at certain times
+    Sets up scheduled scraper jobs.
     """
-    # Runs economic data scraper once per week (Sunday at 4 PM)
     scheduler.add_job(
         scrape_and_store_economic_data,
-        CronTrigger(day_of_week='sun', hour='16', minute='0'),
-        id='economic_data',
-        name='Economic Data Scraper',
+        CronTrigger(day_of_week="sun", hour="16", minute="0"),
+        id="economic_data",
+        name="Economic Data Scraper",
         replace_existing=True
     )
-    
-    # Runs fear index scraper every hour
     scheduler.add_job(
         fear_index,
-        CronTrigger(hour='*', minute='0'),
-        id='fear_index',
-        name='Fear Index Scraper',
+        CronTrigger(hour="*", minute="0"),
+        id="fear_index",
+        name="Fear Index Scraper",
         replace_existing=True
     )
-    
-    # Runs earnings scraper once per day (at 8 AM)
     scheduler.add_job(
         scrape_all_earnings,
-        CronTrigger(hour='8', minute='0'),
-        id='earnings',
-        name='Earnings Scraper',
+        CronTrigger(hour="8", minute="0"),
+        id="earnings",
+        name="Earnings Scraper",
         replace_existing=True
     )
-    
     scheduler.start()
     logger.info("Scheduler started successfully")
 
@@ -241,53 +230,31 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["scraper", "api", "both"], default="both")
     args = parser.parse_args()
-    
+
     try:
-        print("Starting application...")
         logger.info("Starting application...", extra={
             "extras": {
                 "mode": args.mode,
                 "environment": os.getenv("ENVIRONMENT", "dev")
             }
         })
-        
-        # Start the scheduler first
-        print("Setting up scheduler...")
+
         setup_scheduler()
-        
-        # Verify scheduler started
-        if not scheduler.running:
-            print("Starting scheduler manually...")
-            scheduler.start()
-            
-        print(f"Scheduler started successfully. Running: {scheduler.running}")
-        logger.info(f"Scheduler started successfully. Running: {scheduler.running}")
-        
+
         if args.mode in ["scraper", "both"]:
-            print("Running initial scrapers...")
-            logger.info("Running initial scrapers...")
             run_scrapers()
-            
+
         if args.mode in ["api", "both"]:
-            print("Starting API server...")
-            logger.info("Starting API server...")
-            # Start the API server
             import uvicorn
             uvicorn.run(app, host="0.0.0.0", port=8000)
 
     except KeyboardInterrupt:
-        print("\nShutting down...")
         logger.info("Shutting down...")
         if scheduler.running:
             scheduler.shutdown()
 
     except Exception as e:
-        print(f"Error: {e}")
-        logger.error(f"Application error: {str(e)}", extra={
-            "extras": {
-                "error_type": type(e).__name__
-            }
-        })
+        logger.error(f"Application error: {e}")
 
 if __name__ == "__main__":
-    main() 
+    main()
