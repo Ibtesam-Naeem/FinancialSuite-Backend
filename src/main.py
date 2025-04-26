@@ -257,7 +257,8 @@ def main():
         
         # Verify scheduler started
         if not scheduler.running:
-            raise Exception("Scheduler failed to start")
+            print("Starting scheduler manually...")
+            scheduler.start()
             
         print(f"Scheduler started successfully. Running: {scheduler.running}")
         logger.info(f"Scheduler started successfully. Running: {scheduler.running}")
@@ -271,14 +272,14 @@ def main():
             print("Starting API server...")
             logger.info("Starting API server...")
             # Start the API server
-            subprocess.run(
-                ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
-                check=True
-            )
+            import uvicorn
+            uvicorn.run(app, host="0.0.0.0", port=8000)
 
     except KeyboardInterrupt:
         print("\nShutting down...")
         logger.info("Shutting down...")
+        if scheduler.running:
+            scheduler.shutdown()
 
     except Exception as e:
         print(f"Error: {e}")
