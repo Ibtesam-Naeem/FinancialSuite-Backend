@@ -149,6 +149,31 @@ async def get_status():
             "message": str(e)
         }
 
+@app.get("/trigger-scrapers")
+async def trigger_scrapers():
+    """
+    Manually triggers all scrapers and returns their status
+    """
+    try:
+        if not scheduler.running:
+            scheduler.start()
+            
+        # Run all scrapers immediately
+        run_scrapers()
+        
+        return {
+            "status": "success",
+            "message": "Scrapers triggered successfully",
+            "scheduler_running": scheduler.running
+        }
+    
+    except Exception as e:
+        logger.error(f"Error triggering scrapers: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
