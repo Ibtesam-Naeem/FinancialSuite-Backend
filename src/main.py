@@ -12,6 +12,7 @@ from scrapers.earnings_scraper import scrape_all_earnings
 from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger, get_request_logger
 import os
+from datetime import datetime
 
 from utils.db_manager import (
     get_latest_economic_events,
@@ -111,6 +112,43 @@ async def get_fear_greed(limit: int = 1):
         logger.error(f"Failed to get fear/greed index: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/status")
+async def get_status():
+    """
+    Returns the current status of the application and scheduler
+    """
+    try:
+        # Get scheduler status
+        scheduler_status = {
+            "running": scheduler.running,
+            "jobs": []
+        }
+        
+        # Get all scheduled jobs
+        for job in scheduler.get_jobs():
+            scheduler_status["jobs"].append({
+                "id": job.id,
+                "name": job.name,
+                "next_run_time": str(job.next_run_time) if job.next_run_time else None
+            })
+        
+        return {
+            "status": "success",
+            "data": {
+                "application": "running",
+                "scheduler": scheduler_status,
+                "environment": os.getenv("ENVIRONMENT", "dev"),
+                "current_time": datetime.now().isoformat()
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"Status check error: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
@@ -142,7 +180,7 @@ def setup_scheduler():
     """
     Sets up a scheduler to run the scrapers at certain times
     """
-    # Run economic data scraper once per week (Sunday at 4 PM)
+    # Runs economic data scraper once per week (Sunday at 4 PM)
     scheduler.add_job(
         scrape_and_store_economic_data,
         CronTrigger(day_of_week='sun', hour='16', minute='0'),
@@ -180,7 +218,7 @@ def main():
     args = parser.parse_args()
     
     try:
-        print("Starting application...")  # This will always print to stdout
+        print("Starting application...")  
         logger.info("Starting application...", extra={
             "extras": {
                 "mode": args.mode,
@@ -200,7 +238,7 @@ def main():
         if args.mode in ["api", "both"]:
             print("Starting API server...")
             logger.info("Starting API server...")
-            # Start the API server
+
             subprocess.run(
                 ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
                 check=True
