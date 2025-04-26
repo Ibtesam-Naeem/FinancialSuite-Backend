@@ -218,7 +218,7 @@ def main():
     args = parser.parse_args()
     
     try:
-        print("Starting application...")  
+        print("Starting application...")
         logger.info("Starting application...", extra={
             "extras": {
                 "mode": args.mode,
@@ -226,9 +226,16 @@ def main():
             }
         })
         
-        # Start the scheduler
+        # Start the scheduler first
         print("Setting up scheduler...")
         setup_scheduler()
+        
+        # Verify scheduler started
+        if not scheduler.running:
+            raise Exception("Scheduler failed to start")
+            
+        print(f"Scheduler started successfully. Running: {scheduler.running}")
+        logger.info(f"Scheduler started successfully. Running: {scheduler.running}")
         
         if args.mode in ["scraper", "both"]:
             print("Running initial scrapers...")
@@ -238,7 +245,7 @@ def main():
         if args.mode in ["api", "both"]:
             print("Starting API server...")
             logger.info("Starting API server...")
-
+            # Start the API server
             subprocess.run(
                 ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
                 check=True
