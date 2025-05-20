@@ -3,7 +3,6 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from utils.logger import setup_logger
 from utils.db_manager import store_fear_greed_index, get_latest_fear_greed
 
-# Set up logger with consistent naming
 logger = setup_logger("scraper.sentiment")
 
 # ---------------------------- HELPER FUNCTION ----------------------------

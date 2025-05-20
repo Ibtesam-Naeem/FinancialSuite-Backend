@@ -9,7 +9,7 @@ import time
 # ------------------------------ ENV & logger ------------------------------
 
 load_dotenv()
-# Set up logger with consistent naming
+
 logger = setup_logger("scraper.holidays")
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 

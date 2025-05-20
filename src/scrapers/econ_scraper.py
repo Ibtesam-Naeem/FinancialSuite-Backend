@@ -4,7 +4,6 @@ from utils.logger import setup_logger
 from utils.db_manager import store_economic_data
 import time
 
-# Set up logger with consistent naming
 logger = setup_logger("scraper.economic")
 
 # ---------------------------- HELPER FUNCTIONS ----------------------------
@@ -99,9 +98,6 @@ def scrape_economic_data(page):
     - Country
     - Event name
     - Actual, forecast, and prior values
-
-    Returns:
-        list: List of dictionaries containing event data
     """
     logger.info("Waiting for the economic calendar to load.")
 

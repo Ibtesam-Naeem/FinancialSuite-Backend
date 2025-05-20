@@ -45,7 +45,6 @@ def setup_logger(name=None):
     if logger.handlers:
         return logger
     
-    # Always add console handler with basic format for stdout
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -57,7 +56,6 @@ def setup_logger(name=None):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-        # Add file handler for production
         log_dir = os.path.join(os.getcwd(), "logs")
         os.makedirs(log_dir, exist_ok=True)
         

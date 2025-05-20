@@ -3,7 +3,6 @@ from utils.logger import setup_logger
 from utils.db_manager import store_earnings_data
 import time
 
-# Set up logger with consistent naming
 logger = setup_logger("scraper.earnings")
 
 # ---------------------------- BROWSER FUNCTIONS ----------------------------
