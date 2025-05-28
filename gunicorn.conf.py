@@ -17,8 +17,8 @@ keepalive = 2
 os.makedirs("/app/logs", exist_ok=True)
 
 # Logging
-accesslog = "/app/logs/access.log"
-errorlog = "/app/logs/error.log"
+accesslog = "-" 
+errorlog = "-"   
 loglevel = "debug"
 capture_output = True
 enable_stdio_inheritance = True

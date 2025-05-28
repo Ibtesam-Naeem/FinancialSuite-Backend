@@ -1,111 +1,30 @@
-```python:marketdashboard/README.md
-# Market Dashboard Data Service
+# Market Dashboard Backend for Stockpedia.ca and other projects of mine!
 
-A Python-based market data service that scrapes and serves financial market data including earnings reports, economic events, market sentiment, and pre-market movers.
+A simple API that collects and serves financial market data. It scrapes data from various sources and utilizes apis to provide it through REST endpoints.
 
-## Features
+## What it does
 
-- **Earnings Calendar**: Scrapes upcoming earnings reports from TradingView
+- Tracks upcoming earnings reports
+- Monitors important economic events
+- Checks the market fear & greed index
+- Provides market holiday information
 
-- **Economic Events**: Collects high-importance economic events from TradingView's USDCAD calendar
+## API Endpoints
 
-- **Fear & Greed Index**: Tracks market sentiment from CNN's Fear & Greed Index
+The API is live at: https://sea-turtle-app-hbqlx.ondigitalocean.app/
 
-- **Pre-market Movers**: Fetches pre-market gainers and losers 
-from Polygon.io
+- `/earnings` - Get upcoming earnings reports
+- `/economic-events` - Get economic calendar events
+- `/fear-greed` - Get current market sentiment
+- `/market-holidays` - Get upcoming market holidays
+- `/trigger-scrapers` - Manually run all data scrapers
 
-- **REST API**: Serves collected data through FastAPI endpoints
+## Tech Stack
 
-## Installation
+- FastAPI for the API
+- Playwright for web scraping
+- Selenium for fallback 
+- PostgreSQL for data storage
+- Deployed on Digital Ocean
 
-1. Clone the repository:
-```bash
-git clone [your-repo-url]
-cd market-data-service
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Set up environment variables:
-```bash
-# Create .env file
-touch .env
-
-# Add required variables
-POLYGON_API_KEY=your_polygon_api_key
-DB_URL=your_postgres_database_url
-```
-
-## Usage
-
-### Running the Service
-
-Run both scrapers and API:
-```bash
-python -m marketdashboard.main --mode both
-```
-
-Run only scrapers:
-```bash
-python -m marketdashboard.main --mode scraper
-```
-
-Run only API:
-```bash
-python -m marketdashboard.main --mode api
-```
-
-### API Endpoints
-
-The API is deployed at: https://sea-turtle-app-hbqlx.ondigitalocean.app/
-
-Available endpoints:
-- `GET /earnings`: Latest earnings reports
-- `GET /economic-events`: High-importance economic events
-- `GET /fear-greed`: Current Fear & Greed Index
-- `GET /premarket`: Pre-market gainers and losers
-
-- Production: https://sea-turtle-app-hbqlx.ondigitalocean.app/docs
-
-## Project Structure
-
-```
-marketdashboard/
-├── api/
-│   └── main.py
-├── scrapers/
-│   ├── earnings_scraper.py
-│   ├── econ_scraper.py
-│   ├── fear_sentiment.py
-│   └── premarket_movers.py
-├── utils/
-│   ├── db_manager.py
-│   └── logger.py
-└── main.py
-```
-
-## Dependencies
-
-- FastAPI: Web framework for API
-- Playwright: Web scraping and browser automation
-- psycopg2: PostgreSQL database connection
-- requests: HTTP requests for APIs
-- python-dotenv: Environment variable management
-
-## Database Schema
-
-The service uses PostgreSQL with the following tables:
-- `earnings_reports`: Upcoming company earnings
-- `economic_events`: Economic calendar events
-- `fear_greed_index`: Market sentiment data
-- `premarket_movers`: Pre-market trading activity
-
-## Notes
-
-- Pre-market data is only available during market pre-market hours (4:00 AM - 9:30 AM ET)
-- Requires Playwright for web scraping
-- Designed to run as a data service for other applications
-- Production deployment: https://sea-turtle-app-hbqlx.ondigitalocean.app/
+That's it! Just a simple service that keeps track of market data.
