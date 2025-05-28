@@ -13,7 +13,9 @@ DB_URL = os.getenv("DB_URL")
 
 
 def get_db_connection():
-    """Establishes a connection to the PostgreSQL database."""
+    """
+    Establishes a connection to the PostgreSQL database.
+    """
     start_time = time.time()
     try:
         conn = psycopg2.connect(DB_URL)
@@ -40,7 +42,6 @@ def store_earnings_data(data):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Log table creation attempt
         logger.debug("Ensuring earnings_reports table exists")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS earnings_reports (
@@ -58,7 +59,6 @@ def store_earnings_data(data):
         """)
         conn.commit()
 
-        # Log the insert operation
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
