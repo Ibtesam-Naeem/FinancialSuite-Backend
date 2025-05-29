@@ -34,12 +34,12 @@ scheduler = BackgroundScheduler()
 # ---------------------------- API ENDPOINTS ----------------------------
 
 @app.get("/economic-events")
-async def get_economic_events(limit: int = 10):
+async def get_economic_events():
     """
-    Get latest economic events.
+    Get all economic events.
     """
     try:
-        events = get_latest_economic_events(limit)
+        events = get_latest_economic_events()
         return {"status": "success", "data": events}
 
     except Exception as e:
@@ -47,12 +47,12 @@ async def get_economic_events(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/earnings")
-async def get_earnings(limit: int = 10):
+async def get_earnings():
     """
-    Get latest earnings data.
+    Get all earnings data.
     """
     try:
-        earnings = get_latest_earnings(limit)
+        earnings = get_latest_earnings()
         return {"status": "success", "data": earnings}
 
     except Exception as e:
@@ -60,12 +60,12 @@ async def get_earnings(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/market-holidays")
-async def get_market_holidays(limit: int = 10):
+async def get_market_holidays():
     """
-    Gets upcoming market holidays.
+    Gets all market holidays.
     """
     try:
-        holidays = fetch_and_store_market_holidays(limit)
+        holidays = fetch_and_store_market_holidays()
         return {"status": "success", "data": holidays}
 
     except Exception as e:
@@ -73,12 +73,12 @@ async def get_market_holidays(limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/fear-greed")
-async def get_fear_greed(limit: int = 1):
+async def get_fear_greed():
     """
-    Gets latest fear & greed index.
+    Gets all fear & greed index data.
     """
     try:
-        fear_data = get_latest_fear_greed(limit)
+        fear_data = get_latest_fear_greed()
         return {"status": "success", "data": fear_data}
 
     except Exception as e:
