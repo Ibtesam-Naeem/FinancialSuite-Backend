@@ -59,6 +59,26 @@ def store_earnings_data(data):
         """)
         conn.commit()
 
+        try:
+            cur.execute("""
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'earnings_reports' 
+                        AND column_name = 'logo_url'
+                    ) THEN
+                        ALTER TABLE earnings_reports ADD COLUMN logo_url TEXT;
+                    END IF;
+                END $$;
+            """)
+            conn.commit()
+            
+        except Exception as e:
+            logger.error(f"Error adding logo_url column: {e}")
+            conn.rollback()
+
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
