@@ -148,7 +148,7 @@ def setup_scheduler():
     # Economic data - Every Sunday at 4 PM
     scheduler.add_job(
         scrape_and_store_economic_data,
-        CronTrigger(day_of_week="sun", hour=16, minute=0),
+        CronTrigger(hour=12, minute=35),
         id="economic_data",
         name="Economic Data Scraper",
         replace_existing=True
