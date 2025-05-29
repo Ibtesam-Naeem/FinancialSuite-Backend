@@ -11,7 +11,6 @@ logger = setup_logger("database")
 load_dotenv()
 DB_URL = os.getenv("DB_URL")
 
-
 def get_db_connection():
     """
     Establishes a connection to the PostgreSQL database.
@@ -100,18 +99,17 @@ def store_earnings_data(data):
         conn.close()
 
 
-def get_latest_earnings(limit=10):
+def get_latest_earnings():
     """
-    Fetches the latest earnings reports from the database.
+    Fetches all earnings reports from the database.
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute(f"""
+    cur.execute("""
         SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
         FROM earnings_reports
-        ORDER BY report_date DESC
-        LIMIT {limit};
+        ORDER BY report_date DESC;
     """)
 
     rows = cur.fetchall()
@@ -198,18 +196,17 @@ def store_economic_data(economic_data):
         cur.close()
         conn.close()
 
-def get_latest_economic_events(limit=10):
+def get_latest_economic_events():
     """
-    Fetches the latest stored economic events from the database.
+    Fetches all stored economic events from the database.
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute(f"""
+    cur.execute("""
         SELECT event_date, event_time, country, event, actual_value, forecast_value, prior_value
         FROM economic_events
-        ORDER BY event_date DESC
-        LIMIT {limit};
+        ORDER BY event_date DESC;
     """)
 
     rows = cur.fetchall()
@@ -262,18 +259,17 @@ def store_fear_greed_index(fear_value, category):
     cur.close()
     conn.close()
 
-def get_latest_fear_greed(limit=10):
+def get_latest_fear_greed():
     """
-    Fetches the latest stored Fear & Greed Index data.
+    Fetches all stored Fear & Greed Index data.
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute(f"""
+    cur.execute("""
         SELECT date, fear_value, category
         FROM fear_greed_index
-        ORDER BY date DESC
-        LIMIT {limit};
+        ORDER BY date DESC;
     """)
 
     rows = cur.fetchall()
@@ -351,23 +347,19 @@ def store_market_holidays(holidays_data):
         logger.error(f"Database error (Market Holidays): {e}")
         return False
 
-def get_latest_market_holidays(limit: int = 10):
+def get_latest_market_holidays():
     """
-    Fetches the latest market holidays from the database.
-
-    :param limit: Number of holidays to fetch
-    :return: List of holidays
+    Fetches all market holidays from the database.
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute(f"""
+        cur.execute("""
             SELECT name, date, status, exchange, year
             FROM market_holidays
             WHERE date >= CURRENT_DATE
-            ORDER BY date ASC
-            LIMIT {limit};
+            ORDER BY date ASC;
         """)
 
         rows = cur.fetchall()
