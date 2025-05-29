@@ -53,6 +53,7 @@ def store_earnings_data(data):
                 reported_revenue TEXT,
                 time TEXT NOT NULL DEFAULT 'Unknown',
                 market_cap TEXT,
+                logo_url TEXT,
                 UNIQUE (ticker, report_date, time)
             )
         """)
@@ -61,14 +62,15 @@ def store_earnings_data(data):
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
-        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
+        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap, logo_url)
         VALUES %s
         ON CONFLICT (ticker, report_date, time) DO UPDATE
         SET eps_estimate = EXCLUDED.eps_estimate,
             reported_eps = EXCLUDED.reported_eps,
             revenue_forecast = EXCLUDED.revenue_forecast,
             reported_revenue = EXCLUDED.reported_revenue,
-            market_cap = EXCLUDED.market_cap;
+            market_cap = EXCLUDED.market_cap,
+            logo_url = EXCLUDED.logo_url;
         """
 
         data_values = [
@@ -80,7 +82,8 @@ def store_earnings_data(data):
                 record["Revenue Forecast"],
                 record["Reported Revenue"],
                 "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
-                record["Market Cap"]
+                record["Market Cap"],
+                record.get("Logo URL")
             )
             for record in data
         ]
@@ -107,7 +110,7 @@ def get_latest_earnings():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
+        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap, logo_url
         FROM earnings_reports
         ORDER BY report_date DESC;
     """)
@@ -122,7 +125,8 @@ def get_latest_earnings():
             "Revenue Forecast": row[4],
             "Reported Revenue": row[5],
             "Time": row[6] if row[6] else "Unknown",
-            "Market Cap": row[7]
+            "Market Cap": row[7],
+            "Logo URL": row[8]
         }
         for row in rows
     ]
