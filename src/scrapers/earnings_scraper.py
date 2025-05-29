@@ -2,7 +2,6 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from utils.logger import setup_logger
 from utils.db_manager import store_earnings_data
 import time
-from urllib.parse import urlparse
 
 logger = setup_logger("scraper.earnings")
 
@@ -37,21 +36,6 @@ def open_earnings_calendar():
         return None, None, None
 
 # ---------------------------- DATA EXTRACTION ----------------------------
-
-def is_valid_logo_url(url):
-    """
-    Validates if the URL is suitable for Brandfetch API.
-    Returns True if valid, False otherwise.
-    """
-    if not url:
-        return False
-    
-    try:
-        parsed = urlparse(url)
-        return bool(parsed.scheme and parsed.netloc and parsed.path)
-    
-    except Exception:
-        return False
 
 def scrape_earnings_data(page):
     """
@@ -112,21 +96,6 @@ def scrape_earnings_data(page):
             ticker_d = ticker_full.split("\n")[0]
             ticker = ticker_d[:-1] if ticker_d.endswith("D") else ticker_d
 
-            # Extract company logo
-            try:
-                logo_element = row.locator("[data-field-key='name'] img")
-                if logo_element.is_visible():
-                    logo_url = logo_element.get_attribute("src")
-                    if not is_valid_logo_url(logo_url):
-                        logger.warning(f"Invalid logo URL for {ticker}: {logo_url}")
-                        logo_url = None
-                else:
-                    logo_url = None
-
-            except Exception as e:
-                logger.error(f"Error extracting logo for {ticker}: {e}")
-                logo_url = None
-
             # Market cap
             mtk_cap = row.locator("[data-field-key='market_cap_basic']").inner_text().strip("USD")
 
@@ -151,7 +120,6 @@ def scrape_earnings_data(page):
                 "Revenue Forecast": revenue_forecast,
                 "Time": time_reporting.strip() if time_reporting else "Unknown",
                 "Market Cap": mtk_cap,
-                "Logo URL": logo_url,
             })
 
         except Exception as e:

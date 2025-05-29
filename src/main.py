@@ -148,7 +148,7 @@ def setup_scheduler():
     # Economic data - Every Sunday at 4 PM
     scheduler.add_job(
         scrape_and_store_economic_data,
-        CronTrigger(hour=4, minute=0),
+        CronTrigger(hour=12, minute=35),
         id="economic_data",
         name="Economic Data Scraper",
         replace_existing=True
@@ -190,17 +190,4 @@ def setup_scheduler():
         for job in jobs:
             logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
 
-def run_initial_scrape():
-    """
-    Runs all scrapers once when the application starts.
-    """
-    try:
-        logger.info("Running initial scrape on startup...")
-        run_scrapers()
-        logger.info("Initial scrape completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Error during initial scrape: {e}")
-
 setup_scheduler()
-run_initial_scrape()

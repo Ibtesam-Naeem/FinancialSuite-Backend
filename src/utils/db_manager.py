@@ -53,44 +53,22 @@ def store_earnings_data(data):
                 reported_revenue TEXT,
                 time TEXT NOT NULL DEFAULT 'Unknown',
                 market_cap TEXT,
-                logo_url TEXT,
                 UNIQUE (ticker, report_date, time)
             )
         """)
         conn.commit()
 
-        try:
-            cur.execute("""
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (
-                        SELECT 1 
-                        FROM information_schema.columns 
-                        WHERE table_name = 'earnings_reports' 
-                        AND column_name = 'logo_url'
-                    ) THEN
-                        ALTER TABLE earnings_reports ADD COLUMN logo_url TEXT;
-                    END IF;
-                END $$;
-            """)
-            conn.commit()
-            
-        except Exception as e:
-            logger.error(f"Error adding logo_url column: {e}")
-            conn.rollback()
-
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
-        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap, logo_url)
+        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
         VALUES %s
         ON CONFLICT (ticker, report_date, time) DO UPDATE
         SET eps_estimate = EXCLUDED.eps_estimate,
             reported_eps = EXCLUDED.reported_eps,
             revenue_forecast = EXCLUDED.revenue_forecast,
             reported_revenue = EXCLUDED.reported_revenue,
-            market_cap = EXCLUDED.market_cap,
-            logo_url = EXCLUDED.logo_url;
+            market_cap = EXCLUDED.market_cap;
         """
 
         data_values = [
@@ -102,8 +80,7 @@ def store_earnings_data(data):
                 record["Revenue Forecast"],
                 record["Reported Revenue"],
                 "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
-                record["Market Cap"],
-                record.get("Logo URL")
+                record["Market Cap"]
             )
             for record in data
         ]
@@ -121,6 +98,7 @@ def store_earnings_data(data):
         cur.close()
         conn.close()
 
+
 def get_latest_earnings():
     """
     Fetches all earnings reports from the database.
@@ -128,60 +106,30 @@ def get_latest_earnings():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    try:
-        cur.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'earnings_reports' 
-            AND column_name = 'logo_url';
-        """)
-        
-        has_logo_column = cur.fetchone() is not None
-        
-        if has_logo_column:
-            cur.execute("""
-                SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap, logo_url
-                FROM earnings_reports
-                ORDER BY report_date DESC;
-            """)
-        else:
-            cur.execute("""
-                SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
-                FROM earnings_reports
-                ORDER BY report_date DESC;
-            """)
+    cur.execute("""
+        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
+        FROM earnings_reports
+        ORDER BY report_date DESC;
+    """)
 
-        rows = cur.fetchall()
-        earnings_data = []
-        
-        for row in rows:
-            data = {
-                "Ticker": row[0],
-                "Date Reporting": row[1],
-                "EPS Estimate": row[2],
-                "Reported EPS": row[3],
-                "Revenue Forecast": row[4],
-                "Reported Revenue": row[5],
-                "Time": row[6] if row[6] else "Unknown",
-                "Market Cap": row[7]
-            }
-            
-            if has_logo_column:
-                data["Logo URL"] = row[8]
-            else:
-                data["Logo URL"] = None
-                
-            earnings_data.append(data)
+    rows = cur.fetchall()
+    earnings_data = [
+        {
+            "Ticker": row[0],
+            "Date Reporting": row[1],
+            "EPS Estimate": row[2],
+            "Reported EPS": row[3],
+            "Revenue Forecast": row[4],
+            "Reported Revenue": row[5],
+            "Time": row[6] if row[6] else "Unknown",
+            "Market Cap": row[7]
+        }
+        for row in rows
+    ]
 
-        return earnings_data
-
-    except Exception as e:
-        logger.error(f"Error fetching earnings data: {e}")
-        raise
-
-    finally:
-        cur.close()
-        conn.close()
+    cur.close()
+    conn.close()
+    return earnings_data
 
 # --------------------- ECONOMIC EVENTS DATABASE FUNCTIONS ---------------------
 
