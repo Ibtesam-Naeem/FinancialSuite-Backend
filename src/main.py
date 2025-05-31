@@ -200,3 +200,4 @@ def setup_scheduler():
             logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
 
 setup_scheduler()
+run_scrapers()
