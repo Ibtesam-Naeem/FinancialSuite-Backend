@@ -524,3 +524,57 @@ def get_latest_top_stocks(category=None, limit=5):
         if 'conn' in locals():
             conn.close()
 
+def clear_database_data():
+    """
+    Drops and recreates the earnings_reports and economic_events tables 
+    to clear all data and start fresh.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("DROP TABLE IF EXISTS earnings_reports;")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS earnings_reports (
+                id SERIAL PRIMARY KEY,
+                ticker TEXT NOT NULL,
+                report_date DATE NOT NULL,
+                eps_estimate TEXT,
+                reported_eps TEXT,
+                revenue_forecast TEXT,
+                reported_revenue TEXT,
+                time TEXT NOT NULL DEFAULT 'Unknown',
+                market_cap TEXT,
+                week_type TEXT NOT NULL DEFAULT 'This Week',
+                scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_updated BOOLEAN DEFAULT FALSE,
+                UNIQUE (ticker, report_date, time)
+            );
+        """)
+
+        cur.execute("DROP TABLE IF EXISTS economic_events;")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS economic_events (
+                id SERIAL PRIMARY KEY,
+                event_date TIMESTAMP NOT NULL,
+                event_time TEXT DEFAULT NULL,
+                country TEXT NOT NULL,
+                event TEXT NOT NULL,
+                actual_value TEXT,
+                forecast_value TEXT,
+                prior_value TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE (event_date, event, country)
+            );
+        """)
+
+        conn.commit()
+        logger.info("Successfully cleared and recreated earnings_reports and economic_events tables.")
+        
+    except Exception as e:
+        logger.error(f"Error clearing database tables: {e}")
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
