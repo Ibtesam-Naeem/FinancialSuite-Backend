@@ -53,6 +53,9 @@ def store_earnings_data(data):
                 reported_revenue TEXT,
                 time TEXT NOT NULL DEFAULT 'Unknown',
                 market_cap TEXT,
+                week_type TEXT NOT NULL,  -- 'This Week' or 'Next Week'
+                scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_updated BOOLEAN DEFAULT FALSE,  -- True if we have actual results
                 UNIQUE (ticker, report_date, time)
             )
         """)
@@ -61,14 +64,23 @@ def store_earnings_data(data):
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
-        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
+        INSERT INTO earnings_reports (
+            ticker, report_date, eps_estimate, reported_eps, revenue_forecast, 
+            reported_revenue, time, market_cap, week_type, scraped_at, is_updated
+        )
         VALUES %s
         ON CONFLICT (ticker, report_date, time) DO UPDATE
         SET eps_estimate = EXCLUDED.eps_estimate,
             reported_eps = EXCLUDED.reported_eps,
             revenue_forecast = EXCLUDED.revenue_forecast,
             reported_revenue = EXCLUDED.reported_revenue,
-            market_cap = EXCLUDED.market_cap;
+            market_cap = EXCLUDED.market_cap,
+            week_type = EXCLUDED.week_type,
+            scraped_at = CURRENT_TIMESTAMP,
+            is_updated = CASE 
+                WHEN EXCLUDED.reported_eps != '' AND EXCLUDED.reported_eps IS NOT NULL THEN TRUE
+                ELSE earnings_reports.is_updated
+            END;
         """
 
         data_values = [
@@ -80,7 +92,10 @@ def store_earnings_data(data):
                 record["Revenue Forecast"],
                 record["Reported Revenue"],
                 "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
-                record["Market Cap"]
+                record["Market Cap"],
+                "This Week" if "This Week" in record.get("Week Type", "") else "Next Week",
+                datetime.now(),
+                bool(record.get("Reported EPS"))
             )
             for record in data
         ]

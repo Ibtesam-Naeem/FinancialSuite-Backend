@@ -7,13 +7,14 @@ from apscheduler.triggers.cron import CronTrigger
 
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
-from scrapers.earnings_scraper import scrape_all_earnings
+from scrapers.earnings_scraper import scrape_earnings_this_week, scrape_earnings_next_week
 from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger
 from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
     get_latest_fear_greed,
+    migrate_earnings_table
 )
 
 logger = setup_logger("api")
@@ -98,7 +99,7 @@ async def trigger_scrapers():
         scrapers = [
             ("economic_data", scrape_and_store_economic_data),
             ("fear_index", fear_index),
-            ("earnings", scrape_all_earnings),
+            ("earnings", scrape_earnings_this_week),
             ("market_holidays", fetch_and_store_market_holidays)
         ]
         
@@ -130,7 +131,7 @@ def run_scrapers():
         fear_index()
 
         # Scrape all earnings
-        scrape_all_earnings()
+        scrape_earnings_this_week()
 
         # Fetch and store market holidays
         fetch_and_store_market_holidays()
@@ -165,10 +166,19 @@ def setup_scheduler():
     
     # Earnings - Every day at 8 AM
     scheduler.add_job(
-        scrape_all_earnings,
+        scrape_earnings_this_week,
         CronTrigger(hour=8, minute=0),
-        id="earnings",
-        name="Earnings Scraper",
+        id="earnings_this_week",
+        name="Earnings This Week Scraper",
+        replace_existing=True
+    )
+    
+    # Next Week Earnings - Mondays and Fridays at 8:30 AM
+    scheduler.add_job(
+        scrape_earnings_next_week,
+        CronTrigger(hour=8, minute=30, day_of_week='mon,fri'),
+        id="earnings_next_week",
+        name="Earnings Next Week Scraper",
         replace_existing=True
     )
     

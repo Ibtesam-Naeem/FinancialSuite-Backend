@@ -37,12 +37,16 @@ def open_earnings_calendar():
 
 # ---------------------------- DATA EXTRACTION ----------------------------
 
-def scrape_earnings_data(page):
+def scrape_earnings_data(page, week_filter="This Week"):
     """
     Extracts earnings data from TradingView for all stocks.
 
+    Args:
+        page: Playwright page object
+        week_filter: Either "This Week" or "Next Week"
+
     Process:
-    1. Clicks 'This Week' filter
+    1. Clicks specified week filter
     2. Loads all available data by clicking 'Load More'
     3. Extracts data for each stock:
        - Ticker symbol
@@ -51,15 +55,13 @@ def scrape_earnings_data(page):
        - Revenue (estimated and reported)
        - Earnings date and time
     """
-    # Applies the "This Week" filter
     try:
-        this_week_button = page.locator("//div[contains(@class, 'itemContent-LeZwGiB6') and contains(text(), 'This Week')]")
-        this_week_button.wait_for(timeout=10000)
-        this_week_button.click()
-        logger.info("Clicked on 'This Week' button.")
-        
+        button = page.locator(f"//div[contains(@class, 'itemContent-LeZwGiB6') and contains(text(), '{week_filter}')]")
+        button.wait_for(timeout=10000)
+        button.click()
+        logger.info(f"Clicked on '{week_filter}' button.")
     except PlaywrightTimeout as e:
-        logger.error(f"Failed to click on 'This Week' button: {e}")
+        logger.error(f"Failed to click on '{week_filter}' button: {e}")
 
     page.wait_for_selector(".tv-data-table", timeout=10000)
     time.sleep(2)
@@ -83,7 +85,7 @@ def scrape_earnings_data(page):
     earnings_data = []
     rows = page.locator(".tv-data-table__row")
     row_count = rows.count()
-    logger.info(f"Scraping earnings for {row_count} stocks.")
+    logger.info(f"Scraping {week_filter} earnings for {row_count} stocks.")
     time.sleep(5)
 
     for index in range(row_count):
@@ -120,6 +122,7 @@ def scrape_earnings_data(page):
                 "Revenue Forecast": revenue_forecast,
                 "Time": time_reporting.strip() if time_reporting else "Unknown",
                 "Market Cap": mtk_cap,
+                "Week Type": week_filter
             })
 
         except Exception as e:
@@ -129,11 +132,11 @@ def scrape_earnings_data(page):
 
 # ---------------------------- MAIN FUNCTION ----------------------------
 
-def scrape_all_earnings():
+def scrape_all_earnings(week_filter="This Week"):
     """
     Main function that:
     1. Opens the earnings calendar
-    2. Scrapes the earnings data
+    2. Scrapes the earnings data for the specified week
     3. Stores it in the database
     """
     start_time = time.time()
@@ -144,24 +147,36 @@ def scrape_all_earnings():
         return []
 
     try:
-        logger.debug("Starting earnings data scrape")
-        earnings_data = scrape_earnings_data(page)
+        logger.debug(f"Starting earnings data scrape for {week_filter}")
+        earnings_data = scrape_earnings_data(page, week_filter)
         
         if earnings_data:
-            logger.debug(f"Found {len(earnings_data)} earnings records")
+            logger.debug(f"Found {len(earnings_data)} earnings records for {week_filter}")
             store_earnings_data(earnings_data)
             duration = time.time() - start_time
-            logger.info(f"Complete earnings scrape finished in {duration:.2f}s")
+            logger.info(f"{week_filter} earnings scrape finished in {duration:.2f}s")
         else:
-            logger.warning("No earnings data found to store")
+            logger.warning(f"No earnings data found to store for {week_filter}")
             
         return earnings_data
 
     except Exception as e:
         duration = time.time() - start_time
-        logger.error(f"Error scraping earnings after {duration:.2f}s: {e}")
+        logger.error(f"Error scraping {week_filter} earnings after {duration:.2f}s: {e}")
         return []
 
     finally:
         browser.close()
         p.stop()
+
+def scrape_earnings_this_week():
+    """
+    Wrapper function to scrape This Week earnings
+    """
+    return scrape_all_earnings("This Week")
+
+def scrape_earnings_next_week(): # This function is only scraped Monday and Friday
+    """
+    Wrapper function to scrape Next Week earnings 
+    """
+    return scrape_all_earnings("Next Week")
