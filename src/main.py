@@ -13,8 +13,7 @@ from utils.logger import setup_logger
 from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
-    get_latest_fear_greed,
-    migrate_earnings_table
+    get_latest_fear_greed
 )
 
 logger = setup_logger("api")
