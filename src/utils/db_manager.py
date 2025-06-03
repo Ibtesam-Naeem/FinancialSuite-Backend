@@ -53,9 +53,6 @@ def store_earnings_data(data):
                 reported_revenue TEXT,
                 time TEXT NOT NULL DEFAULT 'Unknown',
                 market_cap TEXT,
-                week_type TEXT NOT NULL,  -- 'This Week' or 'Next Week'
-                scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_updated BOOLEAN DEFAULT FALSE,  -- True if we have actual results
                 UNIQUE (ticker, report_date, time)
             )
         """)
@@ -64,23 +61,14 @@ def store_earnings_data(data):
         logger.debug(f"Attempting to store {len(data)} earnings records")
         
         insert_query = """
-        INSERT INTO earnings_reports (
-            ticker, report_date, eps_estimate, reported_eps, revenue_forecast, 
-            reported_revenue, time, market_cap, week_type, scraped_at, is_updated
-        )
+        INSERT INTO earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
         VALUES %s
         ON CONFLICT (ticker, report_date, time) DO UPDATE
         SET eps_estimate = EXCLUDED.eps_estimate,
             reported_eps = EXCLUDED.reported_eps,
             revenue_forecast = EXCLUDED.revenue_forecast,
             reported_revenue = EXCLUDED.reported_revenue,
-            market_cap = EXCLUDED.market_cap,
-            week_type = EXCLUDED.week_type,
-            scraped_at = CURRENT_TIMESTAMP,
-            is_updated = CASE 
-                WHEN EXCLUDED.reported_eps != '' AND EXCLUDED.reported_eps IS NOT NULL THEN TRUE
-                ELSE earnings_reports.is_updated
-            END;
+            market_cap = EXCLUDED.market_cap;
         """
 
         data_values = [
@@ -92,10 +80,7 @@ def store_earnings_data(data):
                 record["Revenue Forecast"],
                 record["Reported Revenue"],
                 "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
-                record["Market Cap"],
-                "This Week" if "This Week" in record.get("Week Type", "") else "Next Week",
-                datetime.now(),
-                bool(record.get("Reported EPS"))
+                record["Market Cap"]
             )
             for record in data
         ]
@@ -430,6 +415,9 @@ def create_top_stocks_table():
 def execute_query(query, params=None):
     """
     Helper function to execute a database query.
+    Args:
+        query (str): SQL query to execute
+        params (tuple, optional): Query parameters
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -451,6 +439,9 @@ def execute_query(query, params=None):
 def store_top_stocks(category, stocks_data):
     """
     Stores top stocks data in the database.
+    Args:
+        category (str): Category of stocks ('after_hours' or 'premarket')
+        stocks_data (list): List of dictionaries containing ticker and rank
     """
     try:
         conn = get_db_connection()
@@ -518,69 +509,3 @@ def get_latest_top_stocks(category=None, limit=5):
         if 'conn' in locals():
             conn.close()
 
-def clear_database_data():
-    """
-    Drops and recreates earnings_reports, economic_events, and top_stocks tables
-    to clear their data and start fresh. Keeps fear_greed_index and market_holidays data.
-    """
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute("DROP TABLE IF EXISTS earnings_reports;")
-        cur.execute("DROP TABLE IF EXISTS economic_events;")
-        cur.execute("DROP TABLE IF EXISTS top_stocks;")
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS earnings_reports (
-                id SERIAL PRIMARY KEY,
-                ticker TEXT NOT NULL,
-                report_date DATE NOT NULL,
-                eps_estimate TEXT,
-                reported_eps TEXT,
-                revenue_forecast TEXT,
-                reported_revenue TEXT,
-                time TEXT NOT NULL DEFAULT 'Unknown',
-                market_cap TEXT,
-                week_type TEXT NOT NULL DEFAULT 'This Week',
-                scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_updated BOOLEAN DEFAULT FALSE,
-                UNIQUE (ticker, report_date, time)
-            );
-        """)
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS economic_events (
-                id SERIAL PRIMARY KEY,
-                event_date TIMESTAMP NOT NULL,
-                event_time TEXT DEFAULT NULL,
-                country TEXT NOT NULL,
-                event TEXT NOT NULL,
-                actual_value TEXT,
-                forecast_value TEXT,
-                prior_value TEXT,
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE (event_date, event, country)
-            );
-        """)
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS top_stocks (
-                id SERIAL PRIMARY KEY,
-                category VARCHAR(50),  -- 'after_hours' or 'premarket'
-                ticker VARCHAR(10),
-                rank INTEGER,  -- Rank of the stock (1-5)
-                date DATE,     -- Date of the data
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-
-        conn.commit()
-        logger.info("Successfully cleared and recreated earnings_reports, economic_events, and top_stocks tables.")
-        
-    except Exception as e:
-        logger.error(f"Error clearing database tables: {e}")
-        raise
-    finally:
-        cur.close()
-        conn.close()
