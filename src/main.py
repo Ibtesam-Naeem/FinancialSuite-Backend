@@ -145,7 +145,7 @@ def setup_scheduler():
     """
     Sets up scheduled scraper jobs.
     """
-    # Economic data - Every Sunday at 4 PM
+    # Economic data - Every day at 4 PM
     scheduler.add_job(
         scrape_and_store_economic_data,
         CronTrigger(hour=12, minute=35),
@@ -191,3 +191,7 @@ def setup_scheduler():
             logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
 
 setup_scheduler()
+
+logger.info("Running initial scraper execution...")
+run_scrapers()
+logger.info("Initial scraper execution completed")
