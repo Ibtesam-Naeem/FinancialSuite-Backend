@@ -13,7 +13,8 @@ from utils.logger import setup_logger
 from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
-    get_latest_fear_greed
+    get_latest_fear_greed,
+    clear_database_data
 )
 
 logger = setup_logger("api")
@@ -30,6 +31,27 @@ app.add_middleware(
 
 # Initialize scheduler as a global variable
 scheduler = BackgroundScheduler()
+
+# Start the scheduler when the application starts
+@app.on_event("startup")
+async def startup_event():
+    try:
+        # Clear the database first
+        logger.info("Clearing database on startup...")
+        clear_database_data()
+        
+        # Setup scheduled tasks
+        setup_scheduler()
+        scheduler.start()
+        
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        raise
+
+# Stop the scheduler when the application shuts down
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
 
 # ---------------------------- API ENDPOINTS ----------------------------
 
@@ -181,7 +203,7 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    # Market holidays - Every Sunday at 6 PMm
+    # Market holidays - Every Sunday at 6 PM
     scheduler.add_job(
         fetch_and_store_market_holidays,
         CronTrigger(day_of_week="sun", hour=18, minute=0),
@@ -189,15 +211,20 @@ def setup_scheduler():
         name="Market Holidays Scraper",
         replace_existing=True
     )
+
+    # Database cleanup - Every two weeks on Sunday at 1 AM
+    scheduler.add_job(
+        clear_database_data,
+        CronTrigger(day_of_week='sun', hour=1, minute=0),
+        id='database_cleanup',
+        name="Database Cleanup",
+        replace_existing=True
+    )
     
-    if not scheduler.running:
-        scheduler.start()
-        logger.info("Scheduler started successfully")
-        
-        # Log all scheduled jobs
-        jobs = scheduler.get_jobs()
-        for job in jobs:
-            logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
+    # Log all scheduled jobs
+    jobs = scheduler.get_jobs()
+    for job in jobs:
+        logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
 
 setup_scheduler()
 run_scrapers()

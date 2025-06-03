@@ -430,9 +430,6 @@ def create_top_stocks_table():
 def execute_query(query, params=None):
     """
     Helper function to execute a database query.
-    Args:
-        query (str): SQL query to execute
-        params (tuple, optional): Query parameters
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -454,9 +451,6 @@ def execute_query(query, params=None):
 def store_top_stocks(category, stocks_data):
     """
     Stores top stocks data in the database.
-    Args:
-        category (str): Category of stocks ('after_hours' or 'premarket')
-        stocks_data (list): List of dictionaries containing ticker and rank
     """
     try:
         conn = get_db_connection()
@@ -526,14 +520,17 @@ def get_latest_top_stocks(category=None, limit=5):
 
 def clear_database_data():
     """
-    Drops and recreates the earnings_reports and economic_events tables 
-    to clear all data and start fresh.
+    Drops and recreates earnings_reports, economic_events, and top_stocks tables
+    to clear their data and start fresh. Keeps fear_greed_index and market_holidays data.
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
         cur.execute("DROP TABLE IF EXISTS earnings_reports;")
+        cur.execute("DROP TABLE IF EXISTS economic_events;")
+        cur.execute("DROP TABLE IF EXISTS top_stocks;")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS earnings_reports (
                 id SERIAL PRIMARY KEY,
@@ -552,7 +549,6 @@ def clear_database_data():
             );
         """)
 
-        cur.execute("DROP TABLE IF EXISTS economic_events;")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS economic_events (
                 id SERIAL PRIMARY KEY,
@@ -568,8 +564,19 @@ def clear_database_data():
             );
         """)
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS top_stocks (
+                id SERIAL PRIMARY KEY,
+                category VARCHAR(50),  -- 'after_hours' or 'premarket'
+                ticker VARCHAR(10),
+                rank INTEGER,  -- Rank of the stock (1-5)
+                date DATE,     -- Date of the data
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
         conn.commit()
-        logger.info("Successfully cleared and recreated earnings_reports and economic_events tables.")
+        logger.info("Successfully cleared and recreated earnings_reports, economic_events, and top_stocks tables.")
         
     except Exception as e:
         logger.error(f"Error clearing database tables: {e}")
@@ -577,4 +584,3 @@ def clear_database_data():
     finally:
         cur.close()
         conn.close()
-
