@@ -28,13 +28,14 @@ def get_fear_category(fear_value):
         else:
             logger.warning(f"Fear value {fear_value} outside expected range 0-100")
             return "Unknown"
+        
     except ValueError:
         logger.error(f"Invalid fear value provided: {fear_value}")
         return "Unknown"
 
 # ---------------------------- MAIN FUNCTION ----------------------------
 
-def fear_index():
+def fear_index(headless=True):
     """
     Scrapes CNN's Fear & Greed Index, stores it in the database, and returns the current data.
     Returns a list containing the fear value, category, and stored date, or empty list if failed.
@@ -43,25 +44,54 @@ def fear_index():
     try:
         logger.debug("Starting Playwright for fear index scrape")
         p = sync_playwright().start()
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
+        browser = p.chromium.launch(headless=headless)
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        )
         page = context.new_page()
 
         logger.debug("Navigating to CNN Fear & Greed page")
-        page.goto("https://www.cnn.com/markets/fear-and-greed", timeout=30000)
+        page.goto("https://www.cnn.com/markets/fear-and-greed", timeout=60000)
+        
+        # Wait for the page to be fully loaded
+        page.wait_for_load_state('networkidle')
+        time.sleep(5)  
 
-        logger.debug("Waiting for fear value to load")
-        page.wait_for_selector("span.dial-number-value", timeout=15000)
+        selectors = [
+            "span.dial-number-value",
+            "div[class*='dial-number'] span",
+            "div[class*='fear-greed'] span[class*='value']",
+            "div[class*='fear-greed'] span[class*='number']"
+        ]
 
-        fear_value_text = page.locator("span.dial-number-value").first.text_content()
-        fear_value = int(fear_value_text.strip())
+        fear_value = None
+
+        for selector in selectors:
+            try:
+                logger.debug(f"Trying selector: {selector}")
+                element = page.wait_for_selector(selector, timeout=5000)
+                if element:
+                    fear_value_text = element.text_content()
+                    if fear_value_text and fear_value_text.strip().isdigit():
+                        fear_value = int(fear_value_text.strip())
+                        logger.debug(f"Found fear value: {fear_value} using selector: {selector}")
+                        break
+
+            except Exception as e:
+                logger.debug(f"Selector {selector} failed: {e}")
+                continue
+
+        if not fear_value:
+            raise Exception("Unable to find fear value on the page")
+
         category = get_fear_category(fear_value)
 
         duration = time.time() - start_time
         logger.info(f"Fear & Greed value: {fear_value} ({category}) - scraped in {duration:.2f}s")
 
         store_fear_greed_index(fear_value, category)
-        latest_entry = get_latest_fear_greed(1)
+        latest_entry = get_latest_fear_greed()
 
         return [{
             "Fear Value": fear_value,
@@ -83,5 +113,6 @@ def fear_index():
         try:
             browser.close()
             p.stop()
+            
         except Exception:
             pass
