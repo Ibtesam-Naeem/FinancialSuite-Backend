@@ -163,10 +163,10 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    # Earnings - Every day at 8 AM
+    # Earnings - Every day at 4 AM
     scheduler.add_job(
         scrape_all_earnings,
-        CronTrigger(hour=8, minute=0),
+        CronTrigger(hour=4, minute=0),
         id="earnings",
         name="Earnings Scraper",
         replace_existing=True
