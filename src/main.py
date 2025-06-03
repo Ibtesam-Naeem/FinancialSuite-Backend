@@ -8,12 +8,13 @@ from apscheduler.triggers.cron import CronTrigger
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
 from scrapers.earnings_scraper import scrape_all_earnings
-from scrapers.general_info import fetch_and_store_market_holidays, get_latest_market_holidays
+from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger
 from utils.db_manager import (
     get_latest_economic_events,
     get_latest_earnings,
     get_latest_fear_greed,
+    get_latest_market_holidays,
 )
 
 logger = setup_logger("api")
