@@ -190,4 +190,18 @@ def setup_scheduler():
         for job in jobs:
             logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
 
-setup_scheduler()
+@app.on_event("startup")
+async def startup_event():
+    """
+    Runs scrapers once upon application startup.
+    """
+    try:
+        logger.info("Running initial scraper jobs on startup...")
+        run_scrapers()
+        logger.info("Initial scraper jobs completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error running initial scraper jobs: {e}")
+    
+    # Setup scheduler for future runs
+    setup_scheduler()
