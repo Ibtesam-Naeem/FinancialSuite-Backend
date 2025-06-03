@@ -181,7 +181,7 @@ def setup_scheduler():
         replace_existing=True
     )
     
-    # Market holidays - Every Sunday at 6 PM
+    # Market holidays - Every Sunday at 6 PMm
     scheduler.add_job(
         fetch_and_store_market_holidays,
         CronTrigger(day_of_week="sun", hour=18, minute=0),
