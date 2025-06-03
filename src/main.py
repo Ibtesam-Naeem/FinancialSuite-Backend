@@ -44,6 +44,10 @@ async def startup_event():
         setup_scheduler()
         scheduler.start()
         
+        # Run all scrapers to populate the fresh database
+        logger.info("Running initial scrapers to populate database...")
+        run_scrapers()
+        
     except Exception as e:
         logger.error(f"Error during startup: {e}")
         raise
@@ -136,6 +140,30 @@ async def trigger_scrapers():
     except Exception as e:
         return {"status": "error", "message": str(e), "results": results}
 
+@app.get("/reset-and-scrape")
+async def reset_and_scrape():
+    """
+    Manually triggers database cleanup and runs all scrapers.
+    Useful for testing and manual resets.
+    """
+    try:
+        # Clear the database
+        logger.info("Manually clearing database...")
+        clear_database_data()
+        
+        # Run all scrapers
+        logger.info("Manually running all scrapers...")
+        run_scrapers()
+        
+        return {
+            "status": "success",
+            "message": "Database cleared and scrapers executed successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in reset-and-scrape: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ---------------------------- SCRAPER FUNCTIONS ----------------------------
 
 def run_scrapers():
@@ -146,20 +174,31 @@ def run_scrapers():
         logger.info("Starting scrapers...")
 
         # Scrape and store economic data
-        scrape_and_store_economic_data()
+        logger.info("Starting economic data scraper...")
+        economic_data = scrape_and_store_economic_data()
+        logger.info(f"Economic data scraper completed. Retrieved {len(economic_data) if economic_data else 0} records")
 
         # Scrape fear index
-        fear_index()
+        logger.info("Starting fear index scraper...")
+        fear_data = fear_index()
+        logger.info(f"Fear index scraper completed. Retrieved {len(fear_data) if fear_data else 0} records")
 
         # Scrape all earnings
-        scrape_earnings_this_week()
+        logger.info("Starting earnings scraper...")
+        earnings_data = scrape_earnings_this_week()
+        logger.info(f"Earnings scraper completed. Retrieved {len(earnings_data) if earnings_data else 0} records")
 
         # Fetch and store market holidays
-        fetch_and_store_market_holidays()
+        logger.info("Starting market holidays scraper...")
+        holidays_data = fetch_and_store_market_holidays()
+        logger.info(f"Market holidays scraper completed. Retrieved {len(holidays_data) if holidays_data else 0} records")
+
         logger.info("All scrapers finished successfully")
 
     except Exception as e:
         logger.error(f"Scraper error: {e}")
+        # Re-raise the exception to ensure the startup process knows about the failure
+        raise
 
 # ---------------------------- SCHEDULER SETUP ----------------------------
 
@@ -227,4 +266,3 @@ def setup_scheduler():
         logger.info(f"Scheduled job: {job.name}")
 
 setup_scheduler()
-run_scrapers()
