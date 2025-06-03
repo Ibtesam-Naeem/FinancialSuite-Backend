@@ -224,7 +224,7 @@ def setup_scheduler():
     # Log all scheduled jobs
     jobs = scheduler.get_jobs()
     for job in jobs:
-        logger.info(f"Scheduled job: {job.name} - Next run: {job.next_run_time}")
+        logger.info(f"Scheduled job: {job.name}")
 
 setup_scheduler()
 run_scrapers()
