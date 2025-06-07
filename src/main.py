@@ -7,7 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from scrapers.econ_scraper import scrape_and_store_economic_data
 from scrapers.fear_sentiment import fear_index
-from scrapers.earnings_scraper import scrape_all_earnings
+from scrapers.earnings_scraper import scrape_all_earnings, scrape_next_week_earnings
 from scrapers.general_info import fetch_and_store_market_holidays
 from utils.logger import setup_logger
 from utils.db_manager import (
@@ -170,6 +170,15 @@ def setup_scheduler():
         CronTrigger(hour=4, minute=0),
         id="earnings",
         name="Earnings Scraper",
+        replace_existing=True
+    )
+    
+    # Next Week Earnings - Every Monday at 12 PM
+    scheduler.add_job(
+        scrape_next_week_earnings,
+        CronTrigger(day_of_week="mon", hour=12, minute=0),
+        id="next_week_earnings",
+        name="Next Week Earnings Scraper",
         replace_existing=True
     )
     

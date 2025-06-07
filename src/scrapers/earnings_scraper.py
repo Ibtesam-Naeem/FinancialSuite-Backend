@@ -37,12 +37,12 @@ def open_earnings_calendar():
 
 # ---------------------------- DATA EXTRACTION ----------------------------
 
-def scrape_earnings_data(page):
+def scrape_earnings_data(page, timeframe="This Week"):
     """
     Extracts earnings data from TradingView for all stocks.
 
     Process:
-    1. Clicks 'This Week' filter
+    1. Clicks specified timeframe filter ('This Week' or 'Next Week')
     2. Loads all available data by clicking 'Load More'
     3. Extracts data for each stock:
        - Ticker symbol
@@ -51,15 +51,15 @@ def scrape_earnings_data(page):
        - Revenue (estimated and reported)
        - Earnings date and time
     """
-    # Applies the "This Week" filter
+    # Applies the specified timeframe filter
     try:
-        this_week_button = page.locator("//div[contains(@class, 'itemContent-LeZwGiB6') and contains(text(), 'This Week')]")
-        this_week_button.wait_for(timeout=10000)
-        this_week_button.click()
-        logger.info("Clicked on 'This Week' button.")
+        timeframe_button = page.locator(f"//div[contains(@class, 'itemContent-LeZwGiB6') and contains(text(), '{timeframe}')]")
+        timeframe_button.wait_for(timeout=10000)
+        timeframe_button.click()
+        logger.info(f"Clicked on '{timeframe}' button.")
         
     except PlaywrightTimeout as e:
-        logger.error(f"Failed to click on 'This Week' button: {e}")
+        logger.error(f"Failed to click on '{timeframe}' button: {e}")
 
     page.wait_for_selector(".tv-data-table", timeout=10000)
     time.sleep(2)
@@ -160,6 +160,40 @@ def scrape_all_earnings():
     except Exception as e:
         duration = time.time() - start_time
         logger.error(f"Error scraping earnings after {duration:.2f}s: {e}")
+        return []
+
+    finally:
+        browser.close()
+        p.stop()
+
+def scrape_next_week_earnings():
+    """
+    Scrapes earnings data for next week's stocks.
+    """
+    start_time = time.time()
+    
+    p, browser, page = open_earnings_calendar()
+    if not page:
+        logger.error("Browser initialization failed")
+        return []
+
+    try:
+        logger.debug("Starting next week earnings data scrape")
+        earnings_data = scrape_earnings_data(page, timeframe="Next Week")
+        
+        if earnings_data:
+            logger.debug(f"Found {len(earnings_data)} next week earnings records")
+            store_earnings_data(earnings_data)
+            duration = time.time() - start_time
+            logger.info(f"Complete next week earnings scrape finished in {duration:.2f}s")
+        else:
+            logger.warning("No next week earnings data found to store")
+            
+        return earnings_data
+
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Error scraping next week earnings after {duration:.2f}s: {e}")
         return []
 
     finally:
