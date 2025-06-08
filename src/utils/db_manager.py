@@ -131,6 +131,111 @@ def get_latest_earnings():
     conn.close()
     return earnings_data
 
+# --------------------- NEXT WEEK EARNINGS DATABASE FUNCTIONS ---------------------
+
+def store_next_week_earnings_data(data):
+    """
+    Stores next week's earnings data in a separate PostgreSQL table.
+    Prevents duplicates and updates existing records.
+    """
+    if not data:
+        logger.debug("No next week earnings data provided to store")
+        return
+
+    start_time = time.time()
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        logger.debug("Ensuring next_week_earnings_reports table exists")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS next_week_earnings_reports (
+                id SERIAL PRIMARY KEY,
+                ticker TEXT NOT NULL,
+                report_date DATE NOT NULL,
+                eps_estimate TEXT,
+                reported_eps TEXT,
+                revenue_forecast TEXT,
+                reported_revenue TEXT,
+                time TEXT NOT NULL DEFAULT 'Unknown',
+                market_cap TEXT,
+                UNIQUE (ticker, report_date, time)
+            )
+        """)
+        conn.commit()
+
+        logger.debug(f"Attempting to store {len(data)} next week earnings records")
+        
+        insert_query = """
+        INSERT INTO next_week_earnings_reports (ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap)
+        VALUES %s
+        ON CONFLICT (ticker, report_date, time) DO UPDATE
+        SET eps_estimate = EXCLUDED.eps_estimate,
+            reported_eps = EXCLUDED.reported_eps,
+            revenue_forecast = EXCLUDED.revenue_forecast,
+            reported_revenue = EXCLUDED.reported_revenue,
+            market_cap = EXCLUDED.market_cap;
+        """
+
+        data_values = [
+            (
+                record["Ticker"],
+                record["Date Reporting"],
+                record["EPS Estimate"],
+                record["Reported EPS"],
+                record["Revenue Forecast"],
+                record["Reported Revenue"],
+                "Unknown" if not record.get("Time") or str(record["Time"]).strip() == "" else record["Time"],
+                record["Market Cap"]
+            )
+            for record in data
+        ]
+
+        execute_values(cur, insert_query, data_values)
+        conn.commit()
+        duration = time.time() - start_time
+        logger.info(f"Successfully stored {len(data)} next week earnings reports in {duration:.2f}s")
+
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(f"Database error (Next Week Earnings Reports) after {duration:.2f}s: {e}")
+    
+    finally:
+        cur.close()
+        conn.close()
+
+def get_latest_next_week_earnings():
+    """
+    Fetches all next week's earnings reports from the database.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
+        FROM next_week_earnings_reports
+        ORDER BY report_date DESC;
+    """)
+
+    rows = cur.fetchall()
+    earnings_data = [
+        {
+            "Ticker": row[0],
+            "Date Reporting": row[1],
+            "EPS Estimate": row[2],
+            "Reported EPS": row[3],
+            "Revenue Forecast": row[4],
+            "Reported Revenue": row[5],
+            "Time": row[6] if row[6] else "Unknown",
+            "Market Cap": row[7]
+        }
+        for row in rows
+    ]
+
+    cur.close()
+    conn.close()
+    return earnings_data
+
 # --------------------- ECONOMIC EVENTS DATABASE FUNCTIONS ---------------------
 
 def store_economic_data(economic_data):

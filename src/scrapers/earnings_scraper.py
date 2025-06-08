@@ -1,6 +1,6 @@
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from utils.logger import setup_logger
-from utils.db_manager import store_earnings_data
+from utils.db_manager import store_earnings_data, store_next_week_earnings_data
 import time
 
 logger = setup_logger("scraper.earnings")
@@ -183,7 +183,7 @@ def scrape_next_week_earnings():
         
         if earnings_data:
             logger.debug(f"Found {len(earnings_data)} next week earnings records")
-            store_earnings_data(earnings_data)
+            store_next_week_earnings_data(earnings_data)
             duration = time.time() - start_time
             logger.info(f"Complete next week earnings scrape finished in {duration:.2f}s")
         else:

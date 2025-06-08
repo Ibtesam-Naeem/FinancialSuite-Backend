@@ -15,6 +15,7 @@ from utils.db_manager import (
     get_latest_earnings,
     get_latest_fear_greed,
     get_latest_market_holidays,
+    get_latest_next_week_earnings,
 )
 
 logger = setup_logger("api")
@@ -50,7 +51,7 @@ async def get_economic_events():
 @app.get("/earnings")
 async def get_earnings():
     """
-    Get all earnings data.
+    Get all earnings data for this week.
     """
     try:
         earnings = get_latest_earnings()
@@ -58,6 +59,19 @@ async def get_earnings():
 
     except Exception as e:
         logger.error(f"Failed to get earnings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/next-week-earnings")
+async def get_next_week_earnings():
+    """
+    Get all earnings data for next week.
+    """
+    try:
+        earnings = get_latest_next_week_earnings()
+        return {"status": "success", "data": earnings}
+
+    except Exception as e:
+        logger.error(f"Failed to get next week earnings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/market-holidays")
