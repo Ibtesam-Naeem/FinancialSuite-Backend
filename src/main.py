@@ -147,6 +147,9 @@ def run_scrapers():
         # Scrape all earnings
         scrape_all_earnings()
 
+        # Scrape next week earnings
+        scrape_next_week_earnings()
+
         # Fetch and store market holidays
         fetch_and_store_market_holidays()
         logger.info("All scrapers finished successfully")
