@@ -207,34 +207,58 @@ def store_next_week_earnings_data(data):
 def get_latest_next_week_earnings():
     """
     Fetches all next week's earnings reports from the database.
+    Returns an empty list if the table doesn't exist yet.
     """
-    conn = get_db_connection()
-    cur = conn.cursor()
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-    cur.execute("""
-        SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
-        FROM next_week_earnings_reports
-        ORDER BY report_date DESC;
-    """)
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'next_week_earnings_reports'
+            );
+        """)
+        
+        table_exists = cur.fetchone()[0]
+        
+        if not table_exists:
+            logger.info("next_week_earnings_reports table doesn't exist yet. Returning empty list.")
+            return []
 
-    rows = cur.fetchall()
-    earnings_data = [
-        {
-            "Ticker": row[0],
-            "Date Reporting": row[1],
-            "EPS Estimate": row[2],
-            "Reported EPS": row[3],
-            "Revenue Forecast": row[4],
-            "Reported Revenue": row[5],
-            "Time": row[6] if row[6] else "Unknown",
-            "Market Cap": row[7]
-        }
-        for row in rows
-    ]
+        cur.execute("""
+            SELECT ticker, report_date, eps_estimate, reported_eps, revenue_forecast, reported_revenue, time, market_cap
+            FROM next_week_earnings_reports
+            ORDER BY report_date DESC;
+        """)
 
-    cur.close()
-    conn.close()
-    return earnings_data
+        rows = cur.fetchall()
+        earnings_data = [
+            {
+                "Ticker": row[0],
+                "Date Reporting": row[1],
+                "EPS Estimate": row[2],
+                "Reported EPS": row[3],
+                "Revenue Forecast": row[4],
+                "Reported Revenue": row[5],
+                "Time": row[6] if row[6] else "Unknown",
+                "Market Cap": row[7]
+            }
+            for row in rows
+        ]
+
+        return earnings_data
+
+    except Exception as e:
+        logger.error(f"Error fetching next week earnings: {e}")
+        return []
+
+    finally:
+        if 'cur' in locals():
+            cur.close()
+            
+        if 'conn' in locals():
+            conn.close()
 
 # --------------------- ECONOMIC EVENTS DATABASE FUNCTIONS ---------------------
 
