@@ -544,9 +544,6 @@ def create_top_stocks_table():
 def execute_query(query, params=None):
     """
     Helper function to execute a database query.
-    Args:
-        query (str): SQL query to execute
-        params (tuple, optional): Query parameters
     """
     conn = get_db_connection()
     cur = conn.cursor()
@@ -568,9 +565,7 @@ def execute_query(query, params=None):
 def store_top_stocks(category, stocks_data):
     """
     Stores top stocks data in the database.
-    Args:
-        category (str): Category of stocks ('after_hours' or 'premarket')
-        stocks_data (list): List of dictionaries containing ticker and rank
+ 
     """
     try:
         conn = get_db_connection()
@@ -638,3 +633,4 @@ def get_latest_top_stocks(category=None, limit=5):
         if 'conn' in locals():
             conn.close()
 
+# ---------------------------- END OF FILE ----------------------------

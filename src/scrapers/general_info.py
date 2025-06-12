@@ -9,9 +9,9 @@ import time
 # ------------------------------ ENV & logger ------------------------------
 
 load_dotenv()
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 
 logger = setup_logger("scraper.holidays")
-POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 
 # ------------------------------ FETCH HOLIDAYS ------------------------------
 
@@ -81,4 +81,4 @@ def fetch_and_store_market_holidays():
         duration = time.time() - start_time
         logger.warning(f"No market holidays found after {duration:.2f}s")
 
-# ------------------------------ RUN SCRAPERS ------------------------------
+# ---------------------------- END OF FILE ----------------------------

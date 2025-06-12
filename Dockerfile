@@ -50,6 +50,7 @@ COPY . .
 ENV ENVIRONMENT=production
 ENV LOG_DIR=/app/logs
 ENV PYTHONPATH=/app/src
+ENV CORS_ORIGINS=["*"]
 
 # Expose port
 EXPOSE 8000

@@ -199,3 +199,5 @@ def scrape_next_week_earnings():
     finally:
         browser.close()
         p.stop()
+
+# ---------------------------- END OF FILE ----------------------------

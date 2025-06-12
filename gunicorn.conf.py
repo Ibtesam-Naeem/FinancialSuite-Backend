@@ -19,7 +19,7 @@ os.makedirs("/app/logs", exist_ok=True)
 # Logging
 accesslog = "-" 
 errorlog = "-"   
-loglevel = "debug"
+loglevel = "info"
 capture_output = True
 enable_stdio_inheritance = True
 
@@ -41,4 +41,14 @@ certfile = None
 # Application settings
 chdir = "/app/src"
 pythonpath = "/app/src"
-preload_app = True 
+preload_app = True
+
+# Graceful timeout
+graceful_timeout = 120
+
+# Max requests
+max_requests = 1000
+max_requests_jitter = 50
+
+# Worker recycling
+worker_tmp_dir = "/dev/shm" 

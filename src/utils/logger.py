@@ -24,3 +24,5 @@ def setup_logger(name=None):
     logger.propagate = False
     
     return logger
+
+# ---------------------------- END OF FILE ----------------------------
