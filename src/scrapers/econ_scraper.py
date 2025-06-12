@@ -126,7 +126,7 @@ def scrape_economic_data(page):
             date_element = row.locator("time")
             event_date = format_date(date_element.get_attribute("datetime")) if date_element.count() > 0 else "N/A"
 
-            # Time (visible directly)
+            # Time
             event_time = row.locator("span[class*=eventTime]").text_content(timeout=2000).strip() if row.locator("span[class*=eventTime]").count() > 0 else "N/A"
 
             # Country
